@@ -6,7 +6,7 @@ services:
     environment:
       DATABASE_URL: postgres://relay:${POSTGRES_PASSWORD:-relay-local-only}@postgres:5432/relay?sslmode=disable
       REDIS_URL: redis://redis:6379/0
-      RELAY_ADMIN_TOKEN: ${RELAY_ADMIN_TOKEN:-local-demo-admin-token-change-before-sharing}
+      RELAY_ADMIN_TOKEN: ${RELAY_ADMIN_TOKEN:-local-relay-admin-token-change-me-now}
       RELAY_CONFIG: /app/config/relay.json
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

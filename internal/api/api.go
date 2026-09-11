@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/KennyMx/Relay/internal/ratelimit"
 	"github.com/KennyMx/Relay/internal/router"
 	"github.com/KennyMx/Relay/internal/store"
+	"github.com/KennyMx/Relay/internal/webui"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -52,15 +54,43 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/keys", s.admin(s.createKey))
 	mux.HandleFunc("DELETE /v1/keys/{id}", s.admin(s.revokeKey))
 	mux.HandleFunc("POST /v1/chat/completions", s.auth(s.chat))
+	mux.HandleFunc("GET /v1/routes", s.auth(s.routes))
 	mux.HandleFunc("GET /v1/requests", s.auth(s.list))
 	mux.HandleFunc("GET /v1/requests/{id}", s.auth(s.get))
+	mux.Handle("/", webui.Handler())
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		ctx, cancel := context.WithTimeout(r.Context(), s.Timeout)
 		defer cancel()
 		mux.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+type routeInfo struct {
+	Name    string          `json:"name"`
+	Targets []router.Target `json:"targets"`
+}
+
+func (s *Server) routes(w http.ResponseWriter, _ *http.Request, key store.Key) {
+	routes := make([]routeInfo, 0, len(s.Router.Routes))
+	for name, route := range s.Router.Routes {
+		targets := append([]router.Target(nil), route.Targets...)
+		routes = append(routes, routeInfo{Name: name, Targets: targets})
+	}
+	sort.Slice(routes, func(i, j int) bool {
+		if routes[i].Name == s.Router.Default {
+			return true
+		}
+		if routes[j].Name == s.Router.Default {
+			return false
+		}
+		return routes[i].Name < routes[j].Name
+	})
+	write(w, http.StatusOK, map[string]any{"default_route": s.Router.Default, "routes": routes, "key": key})
 }
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

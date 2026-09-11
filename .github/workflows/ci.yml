@@ -21,7 +21,7 @@ jobs:
       - name: Race tests with real PostgreSQL and Redis, plus vet
         run: docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
       - name: Verify the running API without paid providers
-        run: docker compose exec -T gateway relay-demo
+        run: docker compose exec -T gateway relay-verify
       - name: Service logs
         if: failure()
         run: docker compose logs --tail=100

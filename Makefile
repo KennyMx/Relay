@@ -1,4 +1,4 @@
-.PHONY: test check run integration demo
+.PHONY: test check run integration verify
 
 test:
 	go test -race ./...
@@ -9,5 +9,5 @@ run:
 	go run ./cmd/relay
 integration:
 	docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
-demo:
-	docker compose exec -T gateway relay-demo
+verify:
+	docker compose exec -T gateway relay-verify

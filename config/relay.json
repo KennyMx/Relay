@@ -11,10 +11,10 @@
   },
   "routes": {
     "chat": {"targets": [{"provider": "mock", "model": "mock-v1"}]},
-    "demo-fallback": {"targets": [{"provider": "mock-rate-limit", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
-    "demo-500": {"targets": [{"provider": "mock-failure", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
-    "demo-timeout": {"targets": [{"provider": "mock-timeout", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
-    "demo-error": {"targets": [{"provider": "mock-failure", "model": "mock-v1"}]}
+    "fallback-rate-limit": {"targets": [{"provider": "mock-rate-limit", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
+    "fallback-server-error": {"targets": [{"provider": "mock-failure", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
+    "fallback-timeout": {"targets": [{"provider": "mock-timeout", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
+    "unavailable": {"targets": [{"provider": "mock-failure", "model": "mock-v1"}]}
   },
   "pricing": {
     "mock/mock-v1": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000},

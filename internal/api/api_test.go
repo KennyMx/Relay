@@ -79,11 +79,16 @@ func TestAPIIntegration(t *testing.T) {
 		rc.Del(ctx, "relay:bucket:"+key.ID)
 	}()
 	want(request("POST", "/v1/chat/completions", "bad", `{}`), 401)
+	routes := request("GET", "/v1/routes", key.Raw, "")
+	want(routes, 200)
+	if !strings.Contains(routes.Body.String(), `"default_route":"chat"`) || !strings.Contains(routes.Body.String(), `"targets"`) {
+		t.Fatal("route discovery response incomplete", routes.Body.String())
+	}
 	want(request("POST", "/v1/chat/completions", key.Raw, `{"messages":[],"stream":true}`), 400)
 	want(request("POST", "/v1/chat/completions", key.Raw, `{"model":"missing","messages":[{"role":"user","content":"hi"}]}`), 400)
 	want(request("POST", "/v1/chat/completions", key.Raw, `{"messages":[{"role":"user","content":"hi"}]} {}`), 400)
 	var recordID string
-	for _, route := range []string{"chat", "demo-fallback", "demo-500", "demo-timeout"} {
+	for _, route := range []string{"chat", "fallback-rate-limit", "fallback-server-error", "fallback-timeout"} {
 		response := request("POST", "/v1/chat/completions", key.Raw, `{"model":"`+route+`","messages":[{"role":"user","content":"hello world"}]}`)
 		want(response, 200)
 		var out struct {
@@ -118,7 +123,7 @@ func TestAPIIntegration(t *testing.T) {
 	}
 	// A caller deadline stops fallback but still persists the attempted provider.
 	deadlineCtx, deadlineCancel := context.WithTimeout(ctx, 100*time.Millisecond)
-	deadlineReq := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"demo-timeout","messages":[{"role":"user","content":"cancel me"}]}`)).WithContext(deadlineCtx)
+	deadlineReq := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"fallback-timeout","messages":[{"role":"user","content":"cancel me"}]}`)).WithContext(deadlineCtx)
 	deadlineReq.Header.Set("Authorization", "Bearer "+key.Raw)
 	deadlineResponse := httptest.NewRecorder()
 	handler.ServeHTTP(deadlineResponse, deadlineReq)
@@ -128,10 +133,10 @@ func TestAPIIntegration(t *testing.T) {
 	if err != nil || canceledRecord.Status != "error" || len(canceledRecord.Attempts) != 1 || canceledRecord.Attempts[0].ErrorCode != "timeout" {
 		t.Fatal("canceled request not logged", canceledRecord, err)
 	}
-	failed := request("POST", "/v1/chat/completions", key.Raw, `{"model":"demo-error","messages":[{"role":"user","content":"hi"}]}`)
+	failed := request("POST", "/v1/chat/completions", key.Raw, `{"model":"unavailable","messages":[{"role":"user","content":"hi"}]}`)
 	want(failed, 502)
 	want(request("GET", "/v1/requests/"+failed.Header().Get("X-Request-ID"), key.Raw, ""), 200)
-	explicit := request("POST", "/v1/chat/completions", key.Raw, `{"model":"demo-fallback","provider":"mock","messages":[{"role":"user","content":"hi"}]}`)
+	explicit := request("POST", "/v1/chat/completions", key.Raw, `{"model":"fallback-rate-limit","provider":"mock","messages":[{"role":"user","content":"hi"}]}`)
 	want(explicit, 200)
 	if !strings.Contains(explicit.Body.String(), `"fallback_count":0`) {
 		t.Fatal("explicit selection did not skip primary")
@@ -172,6 +177,14 @@ func TestHTTPValidation(t *testing.T) {
 		if w.Code != tc.status {
 			t.Fatal(w.Code)
 		}
+		if w.Header().Get("Content-Security-Policy") == "" {
+			t.Fatal("missing content security policy")
+		}
+	}
+	page := httptest.NewRecorder()
+	h.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/", nil))
+	if page.Code != 200 || !strings.Contains(page.Body.String(), "Relay Console") {
+		t.Fatal("operator console unavailable")
 	}
 	for _, body := range []string{`{} {}`, `{"unknown":true}`, strings.Repeat("x", 70000)} {
 		w := httptest.NewRecorder()
