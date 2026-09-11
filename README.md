@@ -4,7 +4,7 @@
 
 **One self-hosted API for OpenAI, Anthropic, Cohere, and local mocks.** Relay normalizes text chat requests, routes models, falls back on retryable provider failures, enforces per-key quotas, and records token usage, latency, and estimated cost.
 
-**Go · PostgreSQL · Redis · Docker Compose.** No frontend or external service account is needed. The default routes use deterministic mocks: **$0 in API charges**, with no real provider calls in development, tests, or the demo.
+**Go · PostgreSQL · Redis · Docker Compose.** Relay includes an embedded operator console for issuing requests, inspecting fallback attempts, tracking usage, and managing keys. The default routes use deterministic local providers: **$0 in API charges**, with no external service account needed.
 
 ```mermaid
 flowchart LR
@@ -32,22 +32,28 @@ cd Relay
 docker compose up --build
 ```
 
-The gateway listens at `http://localhost:8080`. PostgreSQL and Redis stay on the internal Docker network. Migrations run automatically before the gateway starts. No `.env` file is required for the local mock demo.
+The gateway and operator console are available at [http://localhost:8080](http://localhost:8080). PostgreSQL and Redis stay on the internal Docker network. Migrations run automatically before the gateway starts. No `.env` file is required for local use.
 
-In another terminal, verify the entire running application:
+Open the console, select **Create key**, and use the local admin token shown below. The console reveals the raw Relay key once, then opens the authenticated workspace. The key is kept only in that browser tab's `sessionStorage` and is sent only to the same-origin gateway.
 
-```sh
-docker compose exec -T gateway relay-demo
+```text
+local-relay-admin-token-change-me-now
 ```
 
-The demo creates a temporary Relay key, exercises success plus 429/500/timeout fallback, checks stored attempts and simulated costs, exhausts the key's quota, and verifies revocation. Expected output includes:
+For a repeatable command-line verification of the entire running application:
+
+```sh
+docker compose exec -T gateway relay-verify
+```
+
+The verification creates a temporary Relay key, exercises success plus 429/500/timeout fallback, checks stored attempts and simulated costs, exhausts the key's quota, and verifies revocation. Expected output includes:
 
 ```text
 PASS chat           request=<id> attempts=1 tokens=6 simulated_cost=$0.00001000
-PASS demo-fallback  request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
-PASS demo-500       request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
-PASS demo-timeout   request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
-PASS per-key quota returns HTTP 429; demo key will now be revoked
+PASS fallback-rate-limit    request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
+PASS fallback-server-error request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
+PASS fallback-timeout      request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
+PASS per-key quota returns HTTP 429; verification key will now be revoked
 ```
 
 `docker compose down` stops the stack while retaining the database and Redis volumes. Use `docker compose up -d --wait` to start in the background. Change `RELAY_PORT` in `.env` if port 8080 is occupied.
@@ -56,14 +62,14 @@ PASS per-key quota returns HTTP 429; demo key will now be revoked
 
 ### Create a Relay key
 
-Key administration uses `RELAY_ADMIN_TOKEN`. The following is a **public local-demo credential**, also used by Compose's default configuration:
+Key administration uses `RELAY_ADMIN_TOKEN`. The following is a **public local credential**, also used by Compose's default configuration:
 
 ```sh
-export ADMIN_TOKEN=local-demo-admin-token-change-before-sharing
+export ADMIN_TOKEN=local-relay-admin-token-change-me-now
 curl -sS http://localhost:8080/v1/keys \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{"name":"my-demo","requests_per_minute":60,"burst":10}'
+  -d '{"name":"local-console","requests_per_minute":60,"burst":10}'
 ```
 
 The response contains `id`, quota settings, creation time, and `api_key`. Copy the returned `api_key` into your shell. **This is the only response that reveals the full key.** PostgreSQL stores its SHA-256 hash; raw Relay keys and provider credentials are never logged.
@@ -73,7 +79,7 @@ export RELAY_KEY='rl_live_<copy-the-returned-key>'
 curl -sS http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer $RELAY_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"demo-fallback","messages":[{"role":"user","content":"hello world"}],"max_tokens":64}'
+  -d '{"model":"fallback-rate-limit","messages":[{"role":"user","content":"hello world"}],"max_tokens":64}'
 ```
 
 Representative response (ID and timing vary):
@@ -85,7 +91,7 @@ Representative response (ID and timing vary):
   "created": 1789070000,
   "model": "mock-v1",
   "provider": "mock",
-  "route": "demo-fallback",
+  "route": "fallback-rate-limit",
   "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello from Relay mock."}}],
   "usage": {"input_tokens": 2, "output_tokens": 4, "total_tokens": 6, "simulated": true},
   "cost_nano_usd": 10000,
@@ -109,6 +115,7 @@ curl -sS http://localhost:8080/health
 | Endpoint | Authentication | Behavior |
 | --- | --- | --- |
 | `POST /v1/chat/completions` | Relay key | Unified text completion; quotas apply |
+| `GET /v1/routes` | Relay key | Available routes, ordered targets, and current key metadata |
 | `GET /v1/requests` | Relay key | Own request history; `limit` 1–100, `offset` 0–100000 |
 | `GET /v1/requests/{id}` | Relay key | Own request metadata and ordered provider attempts |
 | `POST /v1/keys` | Admin token | Create key with `requests_per_minute` and `burst` (1–100000) |
@@ -126,12 +133,12 @@ Edit [config/relay.json](config/relay.json), then restart the gateway. `model` n
 | Default route | Attempt sequence |
 | --- | --- |
 | `chat` | mock success |
-| `demo-fallback` | mock 429 → mock success |
-| `demo-500` | mock 500 → mock success |
-| `demo-timeout` | mock timeout → mock success |
-| `demo-error` | mock 500 → HTTP 502, with a failed ledger record |
+| `fallback-rate-limit` | mock 429 → mock success |
+| `fallback-server-error` | mock 500 → mock success |
+| `fallback-timeout` | mock timeout → mock success |
+| `unavailable` | mock 500 → HTTP 502, with a failed ledger record |
 
-An explicit `"provider":"mock"` on `demo-fallback` starts at that target, skipping the mock 429. Subsequent targets remain eligible fallbacks. Unknown routes/providers return 400 before consuming quota. Provider names must be unique within a route.
+An explicit `"provider":"mock"` on `fallback-rate-limit` starts at that target, skipping the mock 429. Subsequent targets remain eligible fallbacks. Unknown routes/providers return 400 before consuming quota. Provider names must be unique within a route.
 
 Relay attempts each eligible target **at most once**, bounded by `max_attempts` (1–5). It tries the next target after **429, 500, 502, 503, 504, or timeout**. Authentication and other non-retryable failures stop immediately. There is no same-provider retry loop or background retry. Overall and per-attempt deadlines are configurable; caller cancellation stops further attempts. Fallback switches to a different target immediately, so it does not sleep for the failed provider's `Retry-After`.
 
@@ -191,7 +198,7 @@ Docker-only integration tests run **real PostgreSQL and Redis**, including atomi
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
 ```
 
-This runs `go test -race -count=1 ./...` and `go vet ./...`. Tests create and clean up their own records and bucket keys; no database flush is used. GitHub Actions builds Compose, runs this suite, and verifies the live API with `relay-demo`.
+This runs `go test -race -count=1 ./...` and `go vet ./...`. Tests create and clean up their own records and bucket keys; no database flush is used. GitHub Actions builds Compose, runs this suite, and verifies the live API with `relay-verify`.
 
 With Go 1.23+ installed (Docker and CI use Go 1.25):
 
@@ -199,7 +206,7 @@ With Go 1.23+ installed (Docker and CI use Go 1.25):
 make test       # Unit tests; service integration tests explicitly skip
 make check      # go vet and formatting
 make integration
-make demo      # Against the running Compose gateway
+make verify     # Against the running Compose gateway
 ```
 
 To run the gateway outside Docker, provide reachable `DATABASE_URL`, `REDIS_URL`, and a `RELAY_ADMIN_TOKEN` of at least 32 characters, then `go run ./cmd/relay`. Compose does not publish database/cache ports. `RELAY_CONFIG` defaults to `config/relay.json`, and `RELAY_ADDR` to `:8080`. For integration tests against your own services, set `RELAY_INTEGRATION=1` along with those database/cache URLs and run `go test -race ./...`.
@@ -209,10 +216,11 @@ The local Compose credentials are intentionally public examples, and the HTTP po
 ## Code map
 
 - `cmd/relay`: startup, dependency checks, migrations, graceful shutdown.
-- `cmd/demo`: executable end-to-end portfolio verification.
+- `cmd/verify`: executable end-to-end service verification.
 - `internal/provider`: shared interface, four adapters, local HTTP fixture tests.
 - `internal/router`: target selection, deadlines, bounded fallback.
 - `internal/ratelimit`, `internal/keys`, `internal/pricing`: quota and credential/cost logic.
 - `internal/api`, `internal/store`, `migrations`: HTTP API and durable audit trail.
+- `internal/webui`: embedded, dependency-free operator console.
 
 Licensed under [MIT](LICENSE).
