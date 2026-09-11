@@ -71,3 +71,16 @@ func TestHTTPFailures(t *testing.T) {
 		t.Fatal("accepted missing content and usage")
 	}
 }
+
+func TestRedirectDoesNotForwardCredentials(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("followed upstream redirect") }))
+	defer target.Close()
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
+	defer origin.Close()
+	_, err := (OpenAI{HTTP{BaseURL: origin.URL, APIKey: "private"}}).Complete(context.Background(), Request{})
+	if err == nil || Retryable(err) {
+		t.Fatal("redirect should fail without retry", err)
+	}
+}

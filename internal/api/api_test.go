@@ -116,6 +116,18 @@ func TestAPIIntegration(t *testing.T) {
 		}
 		recordID = out.ID
 	}
+	// A caller deadline stops fallback but still persists the attempted provider.
+	deadlineCtx, deadlineCancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	deadlineReq := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"demo-timeout","messages":[{"role":"user","content":"cancel me"}]}`)).WithContext(deadlineCtx)
+	deadlineReq.Header.Set("Authorization", "Bearer "+key.Raw)
+	deadlineResponse := httptest.NewRecorder()
+	handler.ServeHTTP(deadlineResponse, deadlineReq)
+	deadlineCancel()
+	want(deadlineResponse, 504)
+	canceledRecord, err := db.Get(ctx, key.ID, deadlineResponse.Header().Get("X-Request-ID"))
+	if err != nil || canceledRecord.Status != "error" || len(canceledRecord.Attempts) != 1 || canceledRecord.Attempts[0].ErrorCode != "timeout" {
+		t.Fatal("canceled request not logged", canceledRecord, err)
+	}
 	failed := request("POST", "/v1/chat/completions", key.Raw, `{"model":"demo-error","messages":[{"role":"user","content":"hi"}]}`)
 	want(failed, 502)
 	want(request("GET", "/v1/requests/"+failed.Header().Get("X-Request-ID"), key.Raw, ""), 200)

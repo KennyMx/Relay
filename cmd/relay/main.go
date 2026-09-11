@@ -73,6 +73,7 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("invalid Redis configuration")
 	}
+	options.ContextTimeoutEnabled = true
 	rc := redis.NewClient(options)
 	defer rc.Close()
 	if err = rc.Ping(ctx).Err(); err != nil {

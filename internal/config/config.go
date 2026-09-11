@@ -6,6 +6,7 @@ import (
 	"github.com/KennyMx/Relay/internal/pricing"
 	"github.com/KennyMx/Relay/internal/provider"
 	"github.com/KennyMx/Relay/internal/router"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -36,6 +37,9 @@ func Load(path string) (Config, error) {
 	d.DisallowUnknownFields()
 	if err = d.Decode(&c); err != nil {
 		return c, err
+	}
+	if err = d.Decode(new(any)); err != io.EOF {
+		return c, fmt.Errorf("configuration must contain one JSON object")
 	}
 	return c, c.Validate()
 }
