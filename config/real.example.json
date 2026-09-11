@@ -1,0 +1,23 @@
+{
+  "default_route": "chat",
+  "request_timeout_ms": 60000,
+  "attempt_timeout_ms": 18000,
+  "max_attempts": 3,
+  "providers": {
+    "openai": {"kind": "openai"},
+    "anthropic": {"kind": "anthropic"},
+    "cohere": {"kind": "cohere"}
+  },
+  "routes": {
+    "chat": {"targets": [
+      {"provider": "openai", "model": "YOUR_OPENAI_MODEL"},
+      {"provider": "anthropic", "model": "YOUR_ANTHROPIC_MODEL"},
+      {"provider": "cohere", "model": "YOUR_COHERE_MODEL"}
+    ]}
+  },
+  "pricing": {
+    "openai/YOUR_OPENAI_MODEL": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000},
+    "anthropic/YOUR_ANTHROPIC_MODEL": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000},
+    "cohere/YOUR_COHERE_MODEL": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000}
+  }
+}
