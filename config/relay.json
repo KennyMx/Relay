@@ -1,0 +1,25 @@
+{
+  "default_route": "chat",
+  "request_timeout_ms": 10000,
+  "attempt_timeout_ms": 500,
+  "max_attempts": 3,
+  "providers": {
+    "mock": {"kind": "mock", "scenario": "success"},
+    "mock-rate-limit": {"kind": "mock", "scenario": "429"},
+    "mock-failure": {"kind": "mock", "scenario": "500"},
+    "mock-timeout": {"kind": "mock", "scenario": "timeout"}
+  },
+  "routes": {
+    "chat": {"targets": [{"provider": "mock", "model": "mock-v1"}]},
+    "demo-fallback": {"targets": [{"provider": "mock-rate-limit", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
+    "demo-500": {"targets": [{"provider": "mock-failure", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
+    "demo-timeout": {"targets": [{"provider": "mock-timeout", "model": "mock-v1"}, {"provider": "mock", "model": "mock-v1"}]},
+    "demo-error": {"targets": [{"provider": "mock-failure", "model": "mock-v1"}]}
+  },
+  "pricing": {
+    "mock/mock-v1": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000},
+    "mock-rate-limit/mock-v1": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000},
+    "mock-failure/mock-v1": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000},
+    "mock-timeout/mock-v1": {"input_nano_usd_per_token": 1000, "output_nano_usd_per_token": 2000}
+  }
+}
