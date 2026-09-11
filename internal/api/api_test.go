@@ -45,7 +45,7 @@ func TestAPIIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	db := &store.Store{Pool: pool}
-	s := Server{Store: db, Limiter: &ratelimit.Bucket{Client: rc}, Router: routing, Pricing: cfg.Pricing, AdminToken: "integration-admin-token-32-characters", Timeout: 3 * time.Second}
+	s := Server{AllowedHosts: []string{"example.com"}, Store: db, Limiter: &ratelimit.Bucket{Client: rc}, Router: routing, Pricing: cfg.Pricing, AdminToken: "integration-admin-token-32-characters", Timeout: 3 * time.Second}
 	handler := s.Handler()
 	request := func(method, path, token, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -166,7 +166,7 @@ func TestAPIIntegration(t *testing.T) {
 }
 
 func TestHTTPValidation(t *testing.T) {
-	s := Server{Timeout: time.Second, AdminToken: "test-admin"}
+	s := Server{AllowedHosts: []string{"example.com"}, Timeout: time.Second, AdminToken: "test-admin"}
 	h := s.Handler()
 	for _, tc := range []struct {
 		method, path, body string

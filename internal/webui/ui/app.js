@@ -1,9 +1,18 @@
 (() => {
   "use strict";
 
+  // Remove credentials retained by older console versions. New sessions keep
+  // credentials in memory only and require reconnection after a reload.
+  try {
+    sessionStorage.removeItem("relay_api_key");
+    sessionStorage.removeItem("relay_key_id");
+  } catch { /* Storage may be disabled by the browser. */ }
+
   const state = {
-    key: sessionStorage.getItem("relay_api_key") || "",
-    keyId: sessionStorage.getItem("relay_key_id") || "",
+    key: "",
+    keyId: "",
+    version: 0,
+    controller: new AbortController(),
     routes: [],
     requests: [],
   };
@@ -53,17 +62,22 @@
   }
 
   async function api(path, options = {}) {
+    const version = state.version;
     const headers = new Headers(options.headers || {});
     if (options.token) headers.set("Authorization", `Bearer ${options.token}`);
     if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-    const response = await fetch(path, {...options, headers});
+    const response = await fetch(path, {...options, headers, credentials: "omit", redirect: "error", signal: options.token ? state.controller.signal : undefined});
+    if (options.token && version !== state.version) throw new Error("Session changed");
     if (response.status === 204) return null;
     let payload;
     try { payload = await response.json(); } catch { payload = null; }
+    if (options.token && version !== state.version) throw new Error("Session changed");
     if (!response.ok) {
       const code = payload?.error?.code;
-      if (response.status === 401 && options.token === state.key) disconnect(false);
-      throw new Error(code ? code.replaceAll("_", " ") : `Request failed with HTTP ${response.status}`);
+      const error = new Error(code ? code.replaceAll("_", " ") : `Request failed with HTTP ${response.status}`);
+      error.status = response.status;
+      error.invalidSession = response.status === 401 && options.token === state.key;
+      throw error;
     }
     return payload;
   }
@@ -81,6 +95,8 @@
   }
 
   function switchAccess(mode) {
+    clearCreatedKey();
+    $("adminTokenInput").value = "";
     const connect = mode === "connect";
     $("connectTab").classList.toggle("active", connect);
     $("connectTab").setAttribute("aria-selected", String(connect));
@@ -92,30 +108,61 @@
 
   function persistSession(key, id = "") {
     state.key = key; state.keyId = id;
-    sessionStorage.setItem("relay_api_key", key);
-    if (id) sessionStorage.setItem("relay_key_id", id);
+  }
+
+  function clearCreatedKey() {
+    state.pendingKey = ""; state.pendingKeyId = "";
+    $("createdKeyValue").textContent = "";
+  }
+
+  function clearSensitiveView() {
+    clearCreatedKey();
+    for (const id of ["apiKeyInput", "adminTokenInput", "revokeAdminInput", "systemInput", "promptInput"]) $(id).value = "";
+    for (const id of ["requestRows", "requestDetail", "routeFlow", "completionText", "completionStats", "completionProvider", "completionMeta", "welcomeLine"]) $(id).replaceChildren();
+    for (const id of ["requestMetric", "successMetric", "tokenMetric", "costMetric"]) $(id).textContent = "—";
+    show($("completionPanel"), false);
+    $("requestDialog").close();
+    $("revokeDialog").close();
+    document.querySelectorAll("[data-reveal]").forEach((button) => {
+      $(button.dataset.reveal).type = "password"; button.textContent = "Show";
+    });
   }
 
   async function connect(key, id = "") {
+    const raw = key.trim();
+    disconnect(false);
     clearError(accessError);
-    persistSession(key.trim(), id);
+    persistSession(raw, id);
+    const version = state.version;
     try {
       await loadConsole();
       show(accessView, false); show(consoleView); show($("disconnectButton"));
     } catch (error) {
-      disconnect(false);
-      displayError(accessError, error);
+      if (version === state.version) {
+        disconnect(false);
+        displayError(accessError, error);
+      }
       throw error;
     }
   }
 
   function disconnect(withMessage = true) {
+    state.version++;
+    state.controller.abort();
+    state.controller = new AbortController();
     state.key = ""; state.keyId = ""; state.routes = []; state.requests = [];
-    sessionStorage.removeItem("relay_api_key"); sessionStorage.removeItem("relay_key_id");
+    clearSensitiveView();
     show(consoleView, false); show(accessView); show($("disconnectButton"), false);
     $("apiKeyInput").value = "";
     switchAccess("connect");
     if (withMessage) toast("Disconnected from Relay");
+  }
+
+  function endInvalidSession(error) {
+    if (!error?.invalidSession) return false;
+    disconnect(false);
+    toast("API key is invalid or revoked");
+    return true;
   }
 
   async function createKey(event) {
@@ -133,7 +180,7 @@
       show($("createForm"), false); show($("createdKeyPanel"));
       $("adminTokenInput").value = "";
     } catch (error) { displayError(accessError, error); }
-    finally { setBusy(button, false); }
+    finally { $("adminTokenInput").value = ""; setBusy(button, false); }
   }
 
   async function copyCreatedKey() {
@@ -149,7 +196,6 @@
     state.routes = routeData.routes || [];
     if (routeData.key?.id) {
       state.keyId = routeData.key.id;
-      sessionStorage.setItem("relay_key_id", routeData.key.id);
     }
     state.requests = requestData.data || [];
     renderRoutes(routeData.default_route);
@@ -228,7 +274,12 @@
       $("completionStats").innerHTML = `<span><b>${number(result.usage?.total_tokens)}</b> tokens</span><span><b>${duration(result.latency_ms)}</b> latency</span><span><b>${dollars(result.cost_nano_usd)}</b> estimated</span><span><b>${number(result.fallback_count)}</b> fallbacks</span><span>${result.usage?.simulated ? "Simulated usage" : "Provider usage"}</span>`;
       show($("completionPanel"));
       await refreshHistory();
-    } catch (error) { displayError(chatError, error); await refreshHistory().catch(() => {}); }
+    } catch (error) {
+      if (!endInvalidSession(error) && state.key) {
+        displayError(chatError, error);
+        await refreshHistory().catch(() => {});
+      }
+    }
     finally { setBusy(button, false); }
   }
 
@@ -257,7 +308,7 @@
           <div class="attempt-result"><span class="table-status ${attempt.status === "error" ? "error" : ""}">${escapeHTML(attempt.status)}</span><small>${escapeHTML(attempt.error_code || `${number(attempt.usage?.total_tokens)} tokens · ${duration(attempt.latency_ms || 0)}`)}</small></div>
         </div>`).join("")}`;
       $("requestDialog").showModal();
-    } catch (error) { toast(errorMessage(error)); }
+    } catch (error) { if (!endInvalidSession(error)) toast(errorMessage(error)); }
   }
 
   function openRevokeDialog() {
@@ -278,7 +329,7 @@
       $("revokeDialog").close();
       disconnect(false); toast("API key revoked");
     } catch (error) { displayError($("revokeError"), error); }
-    finally { setBusy(button, false); }
+    finally { $("revokeAdminInput").value = ""; setBusy(button, false); }
   }
 
   $("connectTab").addEventListener("click", () => switchAccess("connect"));
@@ -293,7 +344,7 @@
   $("disconnectButton").addEventListener("click", () => disconnect());
   $("refreshButton").addEventListener("click", async () => {
     const icon = $("refreshButton").querySelector("span"); icon.classList.add("spin");
-    try { await loadConsole(); toast("Console refreshed"); } catch (error) { displayError(historyError, error); }
+    try { await loadConsole(); toast("Console refreshed"); } catch (error) { if (!endInvalidSession(error)) displayError(historyError, error); }
     finally { icon.classList.remove("spin"); }
   });
   $("routeSelect").addEventListener("change", renderRouteFlow);
@@ -303,11 +354,12 @@
   $("requestDialog").addEventListener("click", (event) => { if (event.target === $("requestDialog")) $("requestDialog").close(); });
   $("revokeButton").addEventListener("click", openRevokeDialog);
   $("revokeForm").addEventListener("submit", revokeCurrentKey);
+  $("revokeDialog").addEventListener("close", () => { $("revokeAdminInput").value = ""; });
   document.querySelectorAll("[data-close-revoke]").forEach((button) => button.addEventListener("click", () => $("revokeDialog").close()));
   document.querySelectorAll("[data-reveal]").forEach((button) => button.addEventListener("click", () => {
     const input = $(button.dataset.reveal); const reveal = input.type === "password"; input.type = reveal ? "text" : "password"; button.textContent = reveal ? "Hide" : "Show";
   }));
 
   checkHealth(); window.setInterval(checkHealth, 30000);
-  if (state.key) connect(state.key, state.keyId).catch(() => {});
+  window.addEventListener("pagehide", () => disconnect(false));
 })();

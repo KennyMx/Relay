@@ -39,16 +39,19 @@ type Limiter interface {
 	Allow(context.Context, string, int, int) (ratelimit.Decision, error)
 }
 type Server struct {
-	Store      Ledger
-	Limiter    Limiter
-	Router     *router.Router
-	Pricing    pricing.Table
-	AdminToken string
-	Timeout    time.Duration
-	Health     func(context.Context) error
+	AllowedHosts []string
+	Store        Ledger
+	Limiter      Limiter
+	Router       *router.Router
+	Pricing      pricing.Table
+	AdminToken   string
+	Timeout      time.Duration
+	Health       func(context.Context) error
 }
 
 func (s *Server) Handler() http.Handler {
+	// Bound active work before authentication or any dependency access.
+	inflight := make(chan struct{}, 64)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
 	mux.HandleFunc("POST /v1/keys", s.admin(s.createKey))
@@ -64,6 +67,18 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if !s.acceptBrowserRequest(r) {
+			fail(w, http.StatusForbidden, "untrusted_host_or_origin")
+			return
+		}
+		select {
+		case inflight <- struct{}{}:
+			defer func() { <-inflight }()
+		default:
+			w.Header().Set("Retry-After", "1")
+			fail(w, http.StatusServiceUnavailable, "gateway_busy")
+			return
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), s.Timeout)
 		defer cancel()
 		mux.ServeHTTP(w, r.WithContext(ctx))

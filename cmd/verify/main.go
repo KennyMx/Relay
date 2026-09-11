@@ -26,7 +26,8 @@ func main() {
 		v.base = "http://localhost:8080"
 	}
 	if v.admin == "" {
-		v.admin = "local-relay-admin-token-change-me-now"
+		fmt.Fprintln(os.Stderr, "RELAY_ADMIN_TOKEN is required")
+		os.Exit(1)
 	}
 	if err := v.run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

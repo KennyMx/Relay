@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -32,6 +33,19 @@ func env(name, fallback string) string {
 	return fallback
 }
 func run() error {
+	if len(os.Args) >= 2 && os.Args[1] == "init" {
+		path := ".env"
+		if len(os.Args) == 3 {
+			path = os.Args[2]
+		} else if len(os.Args) != 2 {
+			return fmt.Errorf("usage: relay init [path]")
+		}
+		if err := config.InitEnv(path); err != nil {
+			return err
+		}
+		slog.Info("Created credentials file with owner-only permissions; keep it private", "path", path)
+		return nil
+	}
 	if len(os.Args) == 2 && os.Args[1] == "healthcheck" {
 		client := http.Client{Timeout: 3 * time.Second}
 		resp, err := client.Get("http://127.0.0.1:8080/health")
@@ -45,8 +59,8 @@ func run() error {
 		return nil
 	}
 	admin := os.Getenv("RELAY_ADMIN_TOKEN")
-	if len(admin) < 32 {
-		return fmt.Errorf("RELAY_ADMIN_TOKEN must contain at least 32 characters")
+	if err := config.ValidateAdminToken(admin); err != nil {
+		return err
 	}
 	cfg, err := config.Load(env("RELAY_CONFIG", "config/relay.json"))
 	if err != nil {
@@ -79,7 +93,7 @@ func run() error {
 	if err = rc.Ping(ctx).Err(); err != nil {
 		return fmt.Errorf("Redis unavailable")
 	}
-	app := api.Server{Store: &store.Store{Pool: pool}, Limiter: &ratelimit.Bucket{Client: rc}, Router: routing, Pricing: cfg.Pricing, AdminToken: admin, Timeout: time.Duration(cfg.RequestTimeoutMS) * time.Millisecond, Health: func(ctx context.Context) error {
+	app := api.Server{AllowedHosts: strings.Split(env("RELAY_ALLOWED_HOSTS", "localhost,127.0.0.1,::1"), ","), Store: &store.Store{Pool: pool}, Limiter: &ratelimit.Bucket{Client: rc}, Router: routing, Pricing: cfg.Pricing, AdminToken: admin, Timeout: time.Duration(cfg.RequestTimeoutMS) * time.Millisecond, Health: func(ctx context.Context) error {
 		if err := pool.Ping(ctx); err != nil {
 			return err
 		}

@@ -20,13 +20,18 @@ func Handler() http.Handler {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /assets/{name}", func(w http.ResponseWriter, r *http.Request) {
-		name := r.PathValue("name")
-		if name != "styles.css" && name != "app.js" {
+		var asset string
+		switch r.PathValue("name") {
+		case "styles.css":
+			asset = "styles.css"
+		case "app.js":
+			asset = "app.js"
+		default:
 			http.NotFound(w, r)
 			return
 		}
-		w.Header().Set("Content-Type", mimeType(name))
-		http.ServeFileFS(w, r, assets, name)
+		w.Header().Set("Content-Type", mimeType(asset))
+		http.ServeFileFS(w, r, assets, asset)
 	})
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {

@@ -28,6 +28,8 @@ type Config struct {
 
 func Load(path string) (Config, error) {
 	var c Config
+	// #nosec G304 -- path comes from the trusted RELAY_CONFIG process setting,
+	// never from an HTTP request, and read-only configuration is intentional.
 	f, err := os.Open(path)
 	if err != nil {
 		return c, err
