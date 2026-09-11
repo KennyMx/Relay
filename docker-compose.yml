@@ -1,0 +1,49 @@
+services:
+  gateway:
+    build: .
+    ports:
+      - "127.0.0.1:${RELAY_PORT:-8080}:8080"
+    environment:
+      DATABASE_URL: postgres://relay:${POSTGRES_PASSWORD:-relay-local-only}@postgres:5432/relay?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      RELAY_ADMIN_TOKEN: ${RELAY_ADMIN_TOKEN:-local-demo-admin-token-change-before-sharing}
+      RELAY_CONFIG: /app/config/relay.json
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COHERE_API_KEY: ${COHERE_API_KEY:-}
+    volumes:
+      - ./config:/app/config:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-relay-local-only}
+      POSTGRES_DB: relay
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relay -d relay"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+volumes:
+  postgres-data:
+  redis-data:
