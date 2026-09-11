@@ -5,3 +5,6 @@
 /coverage.out
 *.log
 .DS_Store
+*.pem
+*.key
+secrets/

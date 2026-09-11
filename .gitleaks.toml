@@ -1,0 +1,9 @@
+title = "Relay secret scanning"
+[extend]
+useDefault = true
+
+[[rules]]
+id = "relay-api-key"
+description = "Relay raw API credential"
+regex = '''rl_live_[a-fA-F0-9]{64}'''
+keywords = ["rl_live_"]

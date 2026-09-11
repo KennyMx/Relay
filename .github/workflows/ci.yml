@@ -9,13 +9,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          go-version: '1.25.x'
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.26.x'
           cache: true
       - name: Formatting
         run: test -z "$(gofmt -l cmd internal migrations)"
+      - name: Scan full Git history for secrets (redacted)
+        run: docker run --rm -v "$PWD:/src:ro" ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /src --config /src/.gitleaks.toml --redact --log-opts=--all
+      - name: Scan Go code and dependencies for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+      - name: Go security static analysis
+        run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 ./...
+      - name: Browser credential lifecycle regressions
+        run: node --test internal/webui/ui_security_test.cjs
+      - name: Generate unique local test credentials
+        run: go run ./cmd/relay init
       - name: Build and start the full stack
         run: docker compose up --build -d --wait
       - name: Race tests with real PostgreSQL and Redis, plus vet

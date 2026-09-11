@@ -29,16 +29,13 @@ Install Docker with Compose, then:
 ```sh
 git clone https://github.com/KennyMx/Relay.git
 cd Relay
+docker compose run --rm --build --no-deps --user "$(id -u):$(id -g)" -v "$PWD:/setup" gateway init /setup/.env
 docker compose up --build
 ```
 
-The gateway and operator console are available at [http://localhost:8080](http://localhost:8080). PostgreSQL and Redis stay on the internal Docker network. Migrations run automatically before the gateway starts. No `.env` file is required for local use.
+The gateway and operator console are available at [http://localhost:8080](http://localhost:8080). PostgreSQL and Redis stay on the internal Docker network. Migrations run automatically before the gateway starts. The one-time `init` command creates an ignored `.env` file with unique random admin/database credentials and owner-only permissions. It refuses to replace an existing file. On Windows, omit the `--user` option and mount the repository's absolute path at `/setup`.
 
-Open the console, select **Create key**, and use the local admin token shown below. The console reveals the raw Relay key once, then opens the authenticated workspace. The key is kept only in that browser tab's `sessionStorage` and is sent only to the same-origin gateway.
-
-```text
-local-relay-admin-token-change-me-now
-```
+Open your local `.env` privately, copy `RELAY_ADMIN_TOKEN`, and select **Create key** in the console. There is no shared admin password. The console reveals the raw Relay key once, then keeps it only in memory. Disconnecting or reloading requires reconnection with your saved key; it is not written to browser storage. Disconnect also clears prompts and request data from the page.
 
 For a repeatable command-line verification of the entire running application:
 
@@ -62,12 +59,14 @@ PASS per-key quota returns HTTP 429; verification key will now be revoked
 
 ### Create a Relay key
 
-Key administration uses `RELAY_ADMIN_TOKEN`. The following is a **public local credential**, also used by Compose's default configuration:
+Key administration uses the unique `RELAY_ADMIN_TOKEN` generated in your local `.env`. Load it into your shell without echoing it:
 
 ```sh
-export ADMIN_TOKEN=local-relay-admin-token-change-me-now
+set -a
+. ./.env
+set +a
 curl -sS http://localhost:8080/v1/keys \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Authorization: Bearer $RELAY_ADMIN_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"local-console","requests_per_minute":60,"burst":10}'
 ```
@@ -108,7 +107,7 @@ curl -sS 'http://localhost:8080/v1/requests?limit=20&offset=0' \
 curl -sS http://localhost:8080/v1/requests/REQUEST_ID \
   -H "Authorization: Bearer $RELAY_KEY"
 curl -i -X DELETE http://localhost:8080/v1/keys/KEY_ID \
-  -H "Authorization: Bearer $ADMIN_TOKEN"
+  -H "Authorization: Bearer $RELAY_ADMIN_TOKEN"
 curl -sS http://localhost:8080/health
 ```
 
@@ -148,7 +147,7 @@ For a real route, the same client request can follow OpenAI 429 → Anthropic su
 
 Real calls may incur provider charges. The repository's tests use local HTTP fixtures for all three adapters; no live provider credentials were used to verify them.
 
-1. Copy `.env.example` to `.env`, set the desired provider API keys, and replace the public local admin token. Keep `.env` untracked.
+1. Generate `.env` using the quick-start command, then set the desired provider API keys. Keep `.env` untracked. `.env.example` documents the settings but intentionally contains no usable credentials.
 2. Use [config/real.example.json](config/real.example.json) as a template for `config/relay.json`. Replace **all model placeholders and illustrative prices** with models available to your account and their current rates. Remove unused providers/targets and their prices.
 3. Recreate the gateway with `docker compose up --build -d --wait` so environment changes take effect.
 
@@ -200,18 +199,21 @@ docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
 
 This runs `go test -race -count=1 ./...` and `go vet ./...`. Tests create and clean up their own records and bucket keys; no database flush is used. GitHub Actions builds Compose, runs this suite, and verifies the live API with `relay-verify`.
 
-With Go 1.23+ installed (Docker and CI use Go 1.25):
+With Go 1.26+ installed (also used by Docker and CI):
 
 ```sh
 make test       # Unit tests; service integration tests explicitly skip
 make check      # go vet and formatting
 make integration
 make verify     # Against the running Compose gateway
+make security   # Go vulnerability scan, UI regressions (Node), and Git secret scan
 ```
 
-To run the gateway outside Docker, provide reachable `DATABASE_URL`, `REDIS_URL`, and a `RELAY_ADMIN_TOKEN` of at least 32 characters, then `go run ./cmd/relay`. Compose does not publish database/cache ports. `RELAY_CONFIG` defaults to `config/relay.json`, and `RELAY_ADDR` to `:8080`. For integration tests against your own services, set `RELAY_INTEGRATION=1` along with those database/cache URLs and run `go test -race ./...`.
+To run the gateway outside Docker, generate credentials with `go run ./cmd/relay init`, load the environment, and provide reachable `DATABASE_URL` and `REDIS_URL`, then `go run ./cmd/relay`. Compose does not publish database/cache ports. `RELAY_CONFIG` defaults to `config/relay.json`, and `RELAY_ADDR` to `:8080`. For integration tests against your own services, set `RELAY_INTEGRATION=1` along with those database/cache URLs and run `go test -race ./...`.
 
-The local Compose credentials are intentionally public examples, and the HTTP port binds to loopback. For use beyond your own machine, replace those credentials and provide TLS at your network boundary. There is no hosted infrastructure or deployment requirement.
+The HTTP port binds to loopback. Only `localhost`, `127.0.0.1`, and `::1` Host headers are accepted by default, and cross-origin browser requests are rejected. For your own domain, set `RELAY_ALLOWED_HOSTS` to a comma-separated list of exact hostnames (no scheme or port), including loopback hosts for health checks, and use a TLS reverse proxy that preserves the Host header. Node is used only for UI security tests; it is not a service runtime.
+
+See [SECURITY.md](SECURITY.md) for the security boundary, credential rotation, and reporting guidance. Existing installations upgrading from shared local passwords must rotate them as described there; changing `.env` alone does not change the password in an existing PostgreSQL volume.
 
 ## Code map
 
