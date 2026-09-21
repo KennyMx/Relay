@@ -1,4 +1,4 @@
-// Package webui serves Relay's embedded operator console.
+// Package webui serves Relay's embedded website, workspace, and operator console.
 package webui
 
 import (
@@ -11,7 +11,7 @@ import (
 //go:embed ui/*
 var files embed.FS
 
-// Handler returns a dependency-free, same-origin web console.
+// Handler returns the embedded same-origin web interface.
 func Handler() http.Handler {
 	assets, err := fs.Sub(files, "ui")
 	if err != nil {
@@ -22,6 +22,14 @@ func Handler() http.Handler {
 	mux.HandleFunc("GET /assets/{name}", func(w http.ResponseWriter, r *http.Request) {
 		var asset string
 		switch r.PathValue("name") {
+		case "site.css":
+			asset = "site.css"
+		case "site.js":
+			asset = "site.js"
+		case "workspace.js":
+			asset = "workspace.js"
+		case "favicon.svg":
+			asset = "favicon.svg"
 		case "styles.css":
 			asset = "styles.css"
 		case "app.js":
@@ -34,17 +42,30 @@ func Handler() http.Handler {
 		http.ServeFileFS(w, r, assets, asset)
 	})
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
+		page := ""
+		switch r.URL.Path {
+		case "/":
+			page = "index.html"
+		case "/workspace":
+			page = "workspace.html"
+		case "/architecture":
+			page = "architecture.html"
+		case "/console":
+			page = "console.html"
+		default:
 			http.NotFound(w, r)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		http.ServeFileFS(w, r, assets, "index.html")
+		http.ServeFileFS(w, r, assets, page)
 	})
 	return mux
 }
 
 func mimeType(name string) string {
+	if filepath.Ext(name) == ".svg" {
+		return "image/svg+xml"
+	}
 	if filepath.Ext(name) == ".css" {
 		return "text/css; charset=utf-8"
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/KennyMx/Relay/internal/ratelimit"
 	"github.com/KennyMx/Relay/internal/router"
 	"github.com/KennyMx/Relay/internal/store"
+	"github.com/KennyMx/Relay/internal/trial"
 	"github.com/KennyMx/Relay/internal/webui"
 	"github.com/jackc/pgx/v5"
 )
@@ -54,6 +55,10 @@ func (s *Server) Handler() http.Handler {
 	inflight := make(chan struct{}, 64)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.health)
+	mux.Handle("/v1/try", trial.Handler())
+	mux.HandleFunc("GET /v1/runtime", func(w http.ResponseWriter, r *http.Request) {
+		write(w, 200, map[string]any{"mode": "gateway", "operator_console": true})
+	})
 	mux.HandleFunc("POST /v1/keys", s.admin(s.createKey))
 	mux.HandleFunc("DELETE /v1/keys/{id}", s.admin(s.revokeKey))
 	mux.HandleFunc("POST /v1/chat/completions", s.auth(s.chat))

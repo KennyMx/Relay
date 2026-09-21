@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Relay operator console for routing and observing LLM requests.">
+  <title>Relay Console</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Relay home">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span>Relay <small class="console-label">/ console</small></span>
+    </a>
+    <div class="topbar-right">
+      <span id="healthBadge" class="status-pill status-checking"><span class="status-dot"></span>Checking gateway</span>
+      <button id="disconnectButton" class="button button-quiet hidden" type="button">Disconnect</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="accessView" class="access-shell">
+      <div class="access-copy">
+        <p class="eyebrow">Gateway operations</p>
+        <h1>Your gateway.<br><span>In full view.</span></h1>
+        <p class="lede">Classify request complexity, select a model, and recover from provider failures. One endpoint with shared quotas and a durable record of every decision.</p>
+        <div class="feature-row">
+          <span><b>01</b> Complexity routing</span>
+          <span><b>02</b> Automatic fallback</span>
+          <span><b>03</b> Live usage ledger</span>
+        </div>
+      </div>
+
+      <div id="hostedInfo" class="access-card hidden"><p class="eyebrow">Self-hosted gateway</p><h2>Connect your infrastructure.</h2><p>The operator console manages private API keys, PostgreSQL history, and Redis quotas on your own gateway. This public deployment provides the free request workspace.</p><a class="button button-primary" href="/workspace">Open request workspace →</a><a class="button button-quiet" href="/architecture#quickstart">Set up your gateway</a></div>
+      <div class="access-card" id="operatorAccess">
+        <div class="access-tabs" role="tablist">
+          <button id="connectTab" class="tab active" type="button" role="tab" aria-selected="true">Connect</button>
+          <button id="createTab" class="tab" type="button" role="tab" aria-selected="false">Create key</button>
+        </div>
+
+        <form id="connectForm" class="access-form">
+          <div>
+            <p class="eyebrow">Gateway access</p>
+            <h2>Open your console</h2>
+            <p>Enter a Relay API key. It stays in memory until you disconnect or reload, and is sent only to this gateway.</p>
+          </div>
+          <label for="apiKeyInput">Relay API key</label>
+          <div class="secret-field">
+            <input id="apiKeyInput" name="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="rl_live_••••••••••••••••" required>
+            <button class="reveal-button" type="button" data-reveal="apiKeyInput" aria-label="Show API key">Show</button>
+          </div>
+          <button class="button button-primary button-full" type="submit">Connect to Relay <span>→</span></button>
+        </form>
+
+        <form id="createForm" class="access-form hidden">
+          <div>
+            <p class="eyebrow">Provision access</p>
+            <h2>Create an API key</h2>
+            <p>The raw key is shown once. Relay stores only its SHA-256 hash.</p>
+          </div>
+          <p class="setup-help">First run? Use the admin token generated in your local <code>.env</code>. <a href="https://github.com/KennyMx/Relay#quick-start" target="_blank" rel="noreferrer">Setup instructions ↗</a></p>
+          <label for="adminTokenInput">Admin token</label>
+          <div class="secret-field">
+            <input id="adminTokenInput" type="password" autocomplete="off" spellcheck="false" placeholder="Your RELAY_ADMIN_TOKEN" required>
+            <button class="reveal-button" type="button" data-reveal="adminTokenInput" aria-label="Show admin token">Show</button>
+          </div>
+          <label for="keyNameInput">Key name</label>
+          <input id="keyNameInput" type="text" maxlength="100" value="console-key" required>
+          <div class="field-grid">
+            <div><label for="rpmInput">Requests / minute</label><input id="rpmInput" type="number" min="1" max="100000" value="60" required></div>
+            <div><label for="burstInput">Burst capacity</label><input id="burstInput" type="number" min="1" max="100000" value="10" required></div>
+          </div>
+          <button class="button button-primary button-full" type="submit">Create secure key <span>→</span></button>
+        </form>
+
+        <div id="createdKeyPanel" class="created-key hidden">
+          <div class="success-mark">✓</div>
+          <p class="eyebrow">Key created</p>
+          <h2>Copy it now</h2>
+          <p>This credential cannot be recovered after you leave this screen.</p>
+          <div class="key-output"><code id="createdKeyValue"></code><button id="copyKeyButton" type="button">Copy</button></div>
+          <button id="useKeyButton" class="button button-primary button-full" type="button">Use this key</button>
+        </div>
+        <p id="accessError" class="form-error hidden" role="alert"></p>
+      </div>
+    </section>
+
+    <section id="consoleView" class="console hidden">
+      <div class="console-heading">
+        <div>
+          <p class="eyebrow">Gateway console</p>
+          <h1>Traffic overview</h1>
+          <p id="welcomeLine">Live request data from your Relay key.</p>
+        </div>
+        <button id="refreshButton" class="button button-secondary" type="button"><span class="refresh-icon">↻</span> Refresh</button>
+      </div>
+
+      <div class="metric-grid" aria-label="Current page usage summary">
+        <article class="metric-card"><div class="metric-icon">↗</div><p>Page requests</p><strong id="requestMetric">—</strong><small>25 entries per page</small></article>
+        <article class="metric-card"><div class="metric-icon metric-green">✓</div><p>Success rate</p><strong id="successMetric">—</strong><small id="successCaption">Awaiting traffic</small></article>
+        <article class="metric-card"><div class="metric-icon metric-violet">◇</div><p>Total tokens</p><strong id="tokenMetric">—</strong><small>Input + output on this page</small></article>
+        <article class="metric-card"><div class="metric-icon metric-amber">$</div><p>Provider cost</p><strong id="costMetric">—</strong><small id="costCaption">Simulated usage excluded</small></article>
+      </div>
+
+      <div class="workspace-grid">
+        <article class="panel playground-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Request workspace</p><h2>Send a completion</h2></div>
+            <span class="endpoint-badge">POST /v1/chat/completions</span>
+          </div>
+          <form id="chatForm">
+            <div class="field-grid">
+              <div><label for="routeSelect">Route</label><select id="routeSelect" required></select></div>
+              <div><label for="providerSelect">Start with provider</label><select id="providerSelect"><option value="">Route default</option></select></div>
+            </div>
+            <label for="systemInput">System instruction <span>Optional</span></label>
+            <input id="systemInput" type="text" placeholder="You are a concise assistant">
+            <label for="promptInput">Message</label>
+            <textarea id="promptInput" rows="6" placeholder="Describe the task to route…" required>Explain provider fallback in one sentence.</textarea>
+            <div class="form-footer">
+              <div class="token-field"><label for="maxTokensInput">Max tokens</label><input id="maxTokensInput" type="number" min="1" max="8192" value="256"></div>
+              <button id="sendButton" class="button button-primary" type="submit">Send request <span>↑</span></button>
+            </div>
+          </form>
+          <div id="completionPanel" class="completion hidden" aria-live="polite">
+            <div class="completion-top"><span id="completionProvider" class="provider-badge"></span><span id="completionMeta"></span></div>
+            <div id="completionText" class="completion-text"></div>
+            <div id="completionStats" class="completion-stats"></div>
+          </div>
+          <button id="inspectLastButton" class="button button-quiet hidden" type="button">Inspect recorded attempts →</button>
+          <p id="chatError" class="form-error hidden" role="alert"></p>
+        </article>
+
+        <aside class="panel route-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Routing</p><h2>Active route</h2></div><span id="routeStatus" class="status-pill status-live"><span class="status-dot"></span>Ready</span></div>
+          <div id="routeFlow" class="route-flow"></div>
+          <div class="route-note"><span>i</span><p>Relay moves to the next target after a timeout, 429, or selected 5xx response. Attempts are bounded and recorded.</p></div>
+        </aside>
+      </div>
+
+      <article class="panel activity-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">Usage ledger</p><h2>Recent requests</h2></div>
+          <div class="legend"><span><i class="legend-dot success"></i>Success</span><span><i class="legend-dot error"></i>Error</span></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Request</th><th>Provider / model</th><th>Status</th><th>Tokens</th><th>Latency</th><th>Cost</th><th>Fallbacks</th><th></th></tr></thead>
+            <tbody id="requestRows"></tbody>
+          </table>
+          <div id="emptyState" class="empty-state hidden"><div>↗</div><h3>No requests yet</h3><p>Send a completion above to create the first ledger entry.</p></div>
+        </div>
+        <nav class="pagination" aria-label="Request history pages">
+          <span id="pageCaption" role="status"></span>
+          <div><button id="previousPage" class="button button-quiet" type="button" disabled>← Newer</button>
+          <button id="nextPage" class="button button-quiet" type="button" disabled>Older →</button></div>
+        </nav>
+        <p id="historyError" class="form-error hidden" role="alert"></p>
+      </article>
+
+      <footer class="console-footer">
+        <span>Relay API Gateway</span>
+        <code id="baseUrlLabel"></code>
+        <button id="revokeButton" class="text-button" type="button">Revoke this key</button>
+      </footer>
+    </section>
+  </main>
+
+  <dialog id="requestDialog" aria-labelledby="dialogTitle">
+    <div class="dialog-header"><div><p class="eyebrow">Request detail</p><h2 id="dialogTitle">Request</h2></div><button id="closeDialog" class="icon-button" type="button" aria-label="Close">×</button></div>
+    <div id="requestDetail"></div>
+    <details class="raw-record"><summary>Raw ledger JSON</summary><pre id="requestJSON"></pre></details>
+  </dialog>
+
+  <dialog id="revokeDialog" class="confirm-dialog">
+    <form id="revokeForm">
+      <div class="dialog-header"><div><p class="eyebrow">Access control</p><h2>Revoke this API key?</h2></div><button class="icon-button" type="button" data-close-revoke aria-label="Close">×</button></div>
+      <div class="confirm-body">
+        <p>The key will stop authenticating immediately. Existing ledger records remain available in PostgreSQL.</p>
+        <label for="revokeAdminInput">Admin token</label>
+        <div class="secret-field">
+          <input id="revokeAdminInput" type="password" autocomplete="off" spellcheck="false" placeholder="Your RELAY_ADMIN_TOKEN" required>
+          <button class="reveal-button" type="button" data-reveal="revokeAdminInput" aria-label="Show admin token">Show</button>
+        </div>
+        <p id="revokeError" class="form-error hidden" role="alert"></p>
+        <div class="confirm-actions"><button class="button button-secondary" type="button" data-close-revoke>Cancel</button><button id="confirmRevokeButton" class="button button-danger" type="submit">Revoke key</button></div>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+</body>
+</html>

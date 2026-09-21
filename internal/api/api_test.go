@@ -198,7 +198,7 @@ func TestHTTPValidation(t *testing.T) {
 		}
 	}
 	page := httptest.NewRecorder()
-	h.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/", nil))
+	h.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/console", nil))
 	if page.Code != 200 || !strings.Contains(page.Body.String(), "Relay Console") {
 		t.Fatal("operator console unavailable")
 	}

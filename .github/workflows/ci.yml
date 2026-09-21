@@ -26,7 +26,7 @@ jobs:
       - name: Go security static analysis
         run: go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 ./...
       - name: Browser credential lifecycle regressions
-        run: node --test internal/webui/ui_security_test.cjs
+        run: node --test internal/webui/*test.cjs
       - name: Generate unique local test credentials
         run: go run ./cmd/relay init
       - name: Build and start the full stack

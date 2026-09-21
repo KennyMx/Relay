@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Send a request through Relay's Go router. Explore complexity routing, provider fallback, token usage, and cost estimates without API keys."
+    />
+    <title>Request workspace — Relay</title>
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/site.css" />
+    <script src="/assets/workspace.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="Relay home"
+        ><img
+          src="/assets/favicon.svg"
+          alt=""
+          width="28"
+          height="28"
+        />relay<span class="wordmark-dot">.</span></a
+      >
+      <nav aria-label="Main navigation">
+        <a href="/#product">Product</a><a href="/architecture">How it works</a
+        ><a
+          href="https://github.com/KennyMx/Relay"
+          target="_blank"
+          rel="noreferrer"
+          >GitHub ↗</a
+        >
+      </nav>
+      <a class="button small ghost" href="/console"
+        >Operator console <span>↗</span></a
+      >
+    </header>
+    <main class="wrap" id="main">
+      <section class="page-heading">
+        <p class="eyebrow">EXPLORE THE REQUEST PATH</p>
+        <div class="page-title-row">
+          <div>
+            <h1>Request workspace</h1>
+            <p>Send a task. See the route. Follow every attempt.</p>
+          </div>
+          <span class="status-label" id="workspaceHealth"
+            ><span class="live-dot"></span> Checking gateway</span
+          >
+        </div>
+      </section>
+      <div class="workspace-grid">
+        <section class="work-card">
+          <div class="work-card-header">
+            <h2>Compose a request</h2>
+            <span>NO SIGNUP OR API KEY</span>
+          </div>
+          <div class="work-card-body">
+            <form id="trialForm">
+              <label class="field-label">Start with a task</label>
+              <div class="sample-row" aria-label="Example tasks">
+                <button
+                  class="sample-chip"
+                  type="button"
+                  data-sample="simple"
+                  aria-pressed="true"
+                >
+                  Simple question</button
+                ><button
+                  class="sample-chip"
+                  type="button"
+                  data-sample="standard"
+                  aria-pressed="false"
+                >
+                  Code explanation</button
+                ><button
+                  class="sample-chip"
+                  type="button"
+                  data-sample="complex"
+                  aria-pressed="false"
+                >
+                  System design
+                </button>
+              </div>
+              <label class="field-label" for="trialMessage">Your message</label
+              ><textarea id="trialMessage" maxlength="4000" rows="6" required>
+Translate “good morning” into French.</textarea
+              >
+              <p class="field-hint">
+                Up to 4,000 characters. The public workspace does not store your
+                message.
+              </p>
+              <div class="form-columns">
+                <div>
+                  <label class="field-label" for="trialRoute">Model route</label
+                  ><select id="trialRoute">
+                    <option value="auto">Auto · classify complexity</option>
+                    <option value="fast">Fast · explicit selection</option>
+                    <option value="balanced">
+                      Balanced · explicit selection
+                    </option>
+                    <option value="reasoning">
+                      Reasoning · explicit selection
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field-label" for="trialScenario"
+                    >Provider behavior</label
+                  ><select id="trialScenario">
+                    <option value="success">Normal operation</option>
+                    <option value="rate_limit">Primary returns 429</option>
+                    <option value="server_error">Primary returns 500</option>
+                    <option value="timeout">Primary times out</option>
+                    <option value="unavailable">No available provider</option>
+                  </select>
+                </div>
+              </div>
+              <div class="submit-row">
+                <span class="quiet">YOUR INPUT → REAL GO ROUTER</span
+                ><button class="button dark" id="runTrial" type="submit">
+                  Run request <span>↗</span>
+                </button>
+              </div>
+              <p class="form-error" id="trialError" role="alert" hidden></p>
+            </form>
+          </div>
+          <div class="mode-banner">
+            <span>◇</span
+            ><span
+              ><b>Free public workspace.</b> Uses the local classifier and
+              simulated completions. Jev and real models are available in the
+              self-hosted gateway.
+              <a href="/architecture#public-workspace"
+                >What's running here →</a
+              ></span
+            >
+          </div>
+        </section>
+        <section
+          class="work-card"
+          aria-live="polite"
+          aria-busy="false"
+          id="resultCard"
+        >
+          <div class="work-card-header">
+            <h2>Routing outcome</h2>
+            <span id="outcomeLabel">AWAITING REQUEST</span>
+          </div>
+          <div class="empty-result" id="emptyResult">
+            <div class="empty-symbol">⑂</div>
+            <h3>A clear view of every decision.</h3>
+            <p>
+              Your selected model route, provider attempts, timing, and
+              simulated cost will appear here.
+            </p>
+          </div>
+          <div class="work-card-body" id="trialResult" hidden>
+            <div class="result-summary">
+              <span class="result-symbol">⑂</span>
+              <div>
+                <h3 id="resultRoute"></h3>
+                <p id="resultClassifier"></p>
+              </div>
+              <span class="outcome-tag" id="resultStatus"></span>
+            </div>
+            <div class="result-metrics">
+              <div>
+                <span>Elapsed</span><strong id="resultLatency"></strong>
+              </div>
+              <div>
+                <span>Token usage</span><strong id="resultTokens"></strong>
+              </div>
+              <div>
+                <span>Simulated USD</span><strong id="resultCost"></strong>
+              </div>
+            </div>
+            <p class="attempt-heading">PROVIDER ATTEMPTS</p>
+            <div id="trialAttempts"></div>
+            <p class="decision-note" id="decisionNote"></p>
+            <details class="raw-result">
+              <summary>Inspect response JSON</summary>
+              <pre id="trialJSON"></pre>
+            </details>
+          </div>
+        </section>
+      </div>
+      <section class="work-card history-card">
+        <div class="work-card-header">
+          <h2>This session</h2>
+          <button class="clear-button" id="clearTrial" type="button">
+            Clear session
+          </button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Request</th>
+                <th>Route</th>
+                <th>Result</th>
+                <th>Attempts</th>
+                <th>Elapsed</th>
+                <th>Simulated cost</th>
+              </tr>
+            </thead>
+            <tbody id="trialHistory"></tbody>
+          </table>
+        </div>
+        <div class="empty-history" id="emptyHistory">
+          Your requests will appear here. Session history clears when you
+          reload.
+        </div>
+        <div class="mode-banner">
+          In-memory browser history · latest 20 requests · no shared public
+          ledger
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer wrap">
+      <a class="wordmark" href="/">relay.</a
+      ><span>Real routing. Transparent simulation.</span>
+      <div>
+        <a href="/architecture">Architecture</a
+        ><a href="/console">Operator console</a
+        ><a href="https://github.com/KennyMx/Relay">Source ↗</a>
+      </div>
+    </footer>
+  </body>
+</html>

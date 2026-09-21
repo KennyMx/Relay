@@ -1,0 +1,9 @@
+.git
+.env
+.env.*
+!.env.example
+secrets/
+outputs/
+assets/dronosophila/
+node_modules/
+.vercel/

@@ -90,6 +90,16 @@
     return payload;
   }
 
+  async function checkRuntime() {
+    try {
+      const runtime = await api("/v1/runtime");
+      if (runtime.operator_console === false) {
+        show($("operatorAccess"), false);
+        show($("hostedInfo"));
+      }
+    } catch { /* Older self-hosted servers retain the normal connection flow. */ }
+  }
+
   async function checkHealth() {
     const badge = $("healthBadge");
     try {
@@ -417,6 +427,7 @@
     const input = $(button.dataset.reveal); const reveal = input.type === "password"; input.type = reveal ? "text" : "password"; button.textContent = reveal ? "Hide" : "Show";
   }));
 
+  checkRuntime();
   checkHealth(); window.setInterval(checkHealth, 30000);
   window.addEventListener("pagehide", () => disconnect(false));
 })();

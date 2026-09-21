@@ -86,7 +86,7 @@ test('credential-bearing browser requests refuse redirects', async () => {
   });
   element('apiKeyInput').value = 'rl_live_' + 'd'.repeat(64);
   await trigger(element('connectForm'), 'submit');
-  for (const call of calls.filter((c) => c.path.startsWith('/v1'))) {
+  for (const call of calls.filter((c) => c.options.headers.has('Authorization'))) {
     assert.equal(call.options.redirect, 'error');
     assert.equal(call.options.credentials, 'omit');
     assert.ok(call.options.signal);

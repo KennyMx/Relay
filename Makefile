@@ -18,5 +18,5 @@ charts:
 security:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 	go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 ./...
-	node --test internal/webui/ui_security_test.cjs
+	node --test internal/webui/*test.cjs
 	docker run --rm -v "$(CURDIR):/src:ro" ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f git /src --config /src/.gitleaks.toml --redact --log-opts=--all

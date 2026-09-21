@@ -15,7 +15,12 @@ func TestEmbeddedConsole(t *testing.T) {
 		contentType string
 		contains    string
 	}{
-		{"/", "text/html", "Relay Console"},
+		{"/", "text/html", "The right route."},
+		{"/console", "text/html", "Relay Console"},
+		{"/workspace", "text/html", "Request workspace"},
+		{"/architecture", "text/html", "Inside the gateway."},
+		{"/assets/favicon.svg", "image/svg+xml", "<svg"},
+		{"/assets/workspace.js", "text/javascript", "/v1/try"},
 		{"/assets/styles.css", "text/css", "--accent"},
 		{"/assets/app.js", "text/javascript", "/v1/chat/completions"},
 	} {

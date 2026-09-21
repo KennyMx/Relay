@@ -99,7 +99,7 @@ func run() error {
 		}
 		return rc.Ping(ctx).Err()
 	}}
-	server := http.Server{Addr: env("RELAY_ADDR", ":8080"), Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: time.Duration(cfg.RequestTimeoutMS)*time.Millisecond + 5*time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := http.Server{Addr: env("RELAY_ADDR", ":"+env("PORT", "8080")), Handler: app.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: time.Duration(cfg.RequestTimeoutMS)*time.Millisecond + 5*time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10}
 	stopCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	done := make(chan error, 1)

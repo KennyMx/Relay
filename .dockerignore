@@ -17,3 +17,7 @@ coverage.out
 
 /outputs/
 /assets/dronosophila/
+
+.vercel
+node_modules
+/server
