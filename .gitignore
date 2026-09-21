@@ -8,3 +8,10 @@
 *.pem
 *.key
 secrets/
+
+# Local review artifacts may contain personal information.
+/tmp/
+/output/
+
+/outputs/
+/assets/dronosophila/

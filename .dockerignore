@@ -10,3 +10,10 @@ secrets
 bin
 coverage.out
 *.log
+
+# Local review artifacts may contain personal information.
+/tmp/
+/output/
+
+/outputs/
+/assets/dronosophila/

@@ -1,0 +1,348 @@
+{
+  "timestamp": "2026-09-21T04:12:20Z",
+  "mode": "jev",
+  "environment": "linux/arm64 go1.26.8",
+  "corpus": "docs/benchmarks/cases.json",
+  "cases": 12,
+  "agreement_count": 11,
+  "p50_wall_ms": 177.009,
+  "p95_wall_ms": 522.634,
+  "records": [
+    {
+      "id": "greeting",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "confidence": 1,
+        "probabilities": {
+          "complex": 0,
+          "simple": 1,
+          "standard": 0
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 522,
+        "usage": {
+          "input_tokens": 435,
+          "output_tokens": 40,
+          "total_tokens": 475,
+          "simulated": false
+        },
+        "cost_nano_usd": 18270
+      },
+      "wall_ms": 522.634,
+      "simulated_completion_cost_nano_usd": 1200,
+      "simulated_all_reasoning_cost_nano_usd": 60000
+    },
+    {
+      "id": "extract",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "confidence": 1,
+        "probabilities": {
+          "complex": 0,
+          "simple": 1,
+          "standard": 0
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 177,
+        "usage": {
+          "input_tokens": 442,
+          "output_tokens": 40,
+          "total_tokens": 482,
+          "simulated": false
+        },
+        "cost_nano_usd": 18564
+      },
+      "wall_ms": 177.009,
+      "simulated_completion_cost_nano_usd": 1600,
+      "simulated_all_reasoning_cost_nano_usd": 80000
+    },
+    {
+      "id": "rewrite",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "confidence": 1,
+        "probabilities": {
+          "complex": 0,
+          "simple": 1,
+          "standard": 0
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 179,
+        "usage": {
+          "input_tokens": 441,
+          "output_tokens": 40,
+          "total_tokens": 481,
+          "simulated": false
+        },
+        "cost_nano_usd": 18522
+      },
+      "wall_ms": 179.943,
+      "simulated_completion_cost_nano_usd": 1500,
+      "simulated_all_reasoning_cost_nano_usd": 75000
+    },
+    {
+      "id": "fact",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "confidence": 1,
+        "probabilities": {
+          "complex": 0,
+          "simple": 1,
+          "standard": 0
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 175,
+        "usage": {
+          "input_tokens": 437,
+          "output_tokens": 40,
+          "total_tokens": 477,
+          "simulated": false
+        },
+        "cost_nano_usd": 18354
+      },
+      "wall_ms": 175.989,
+      "simulated_completion_cost_nano_usd": 1400,
+      "simulated_all_reasoning_cost_nano_usd": 70000
+    },
+    {
+      "id": "function",
+      "expected": "standard",
+      "selected": "balanced",
+      "reason": "classified",
+      "classification": {
+        "tier": "standard",
+        "confidence": 0.81,
+        "probabilities": {
+          "complex": 0,
+          "simple": 0.13,
+          "standard": 0.87
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 257,
+        "usage": {
+          "input_tokens": 442,
+          "output_tokens": 40,
+          "total_tokens": 482,
+          "simulated": false
+        },
+        "cost_nano_usd": 18564
+      },
+      "wall_ms": 257.681,
+      "simulated_completion_cost_nano_usd": 19000,
+      "simulated_all_reasoning_cost_nano_usd": 95000
+    },
+    {
+      "id": "explain",
+      "expected": "standard",
+      "selected": "balanced",
+      "reason": "classified",
+      "classification": {
+        "tier": "standard",
+        "confidence": 0.92,
+        "probabilities": {
+          "complex": 0,
+          "simple": 0.06,
+          "standard": 0.94
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 178,
+        "usage": {
+          "input_tokens": 443,
+          "output_tokens": 40,
+          "total_tokens": 483,
+          "simulated": false
+        },
+        "cost_nano_usd": 18606
+      },
+      "wall_ms": 178.449,
+      "simulated_completion_cost_nano_usd": 18000,
+      "simulated_all_reasoning_cost_nano_usd": 90000
+    },
+    {
+      "id": "compare",
+      "expected": "standard",
+      "selected": "balanced",
+      "reason": "classified",
+      "classification": {
+        "tier": "standard",
+        "confidence": 0.95,
+        "probabilities": {
+          "complex": 0,
+          "simple": 0.03,
+          "standard": 0.97
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 175,
+        "usage": {
+          "input_tokens": 440,
+          "output_tokens": 40,
+          "total_tokens": 480,
+          "simulated": false
+        },
+        "cost_nano_usd": 18480
+      },
+      "wall_ms": 175.83,
+      "simulated_completion_cost_nano_usd": 17000,
+      "simulated_all_reasoning_cost_nano_usd": 85000
+    },
+    {
+      "id": "query",
+      "expected": "standard",
+      "selected": "balanced",
+      "reason": "classified",
+      "classification": {
+        "tier": "standard",
+        "confidence": 0.86,
+        "probabilities": {
+          "complex": 0,
+          "simple": 0.09,
+          "standard": 0.91
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 174,
+        "usage": {
+          "input_tokens": 444,
+          "output_tokens": 40,
+          "total_tokens": 484,
+          "simulated": false
+        },
+        "cost_nano_usd": 18648
+      },
+      "wall_ms": 174.381,
+      "simulated_completion_cost_nano_usd": 21000,
+      "simulated_all_reasoning_cost_nano_usd": 105000
+    },
+    {
+      "id": "architecture",
+      "expected": "complex",
+      "selected": "reasoning",
+      "reason": "classified",
+      "classification": {
+        "tier": "complex",
+        "confidence": 1,
+        "probabilities": {
+          "complex": 1,
+          "simple": 0,
+          "standard": 0
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 127,
+        "usage": {
+          "input_tokens": 454,
+          "output_tokens": 40,
+          "total_tokens": 494,
+          "simulated": false
+        },
+        "cost_nano_usd": 19068
+      },
+      "wall_ms": 127.54,
+      "simulated_completion_cost_nano_usd": 125000,
+      "simulated_all_reasoning_cost_nano_usd": 125000
+    },
+    {
+      "id": "proof",
+      "expected": "complex",
+      "selected": "balanced",
+      "reason": "low_confidence",
+      "classification": {
+        "tier": "complex",
+        "confidence": 0.44,
+        "probabilities": {
+          "complex": 0.63,
+          "simple": 0,
+          "standard": 0.37
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 253,
+        "usage": {
+          "input_tokens": 458,
+          "output_tokens": 40,
+          "total_tokens": 498,
+          "simulated": false
+        },
+        "cost_nano_usd": 19236
+      },
+      "wall_ms": 253.103,
+      "simulated_completion_cost_nano_usd": 29000,
+      "simulated_all_reasoning_cost_nano_usd": 145000
+    },
+    {
+      "id": "debug",
+      "expected": "complex",
+      "selected": "reasoning",
+      "reason": "classified",
+      "classification": {
+        "tier": "complex",
+        "confidence": 0.99,
+        "probabilities": {
+          "complex": 1,
+          "simple": 0,
+          "standard": 0
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 193,
+        "usage": {
+          "input_tokens": 462,
+          "output_tokens": 40,
+          "total_tokens": 502,
+          "simulated": false
+        },
+        "cost_nano_usd": 19404
+      },
+      "wall_ms": 193.98,
+      "simulated_completion_cost_nano_usd": 160000,
+      "simulated_all_reasoning_cost_nano_usd": 160000
+    },
+    {
+      "id": "tradeoffs",
+      "expected": "complex",
+      "selected": "reasoning",
+      "reason": "classified",
+      "classification": {
+        "tier": "complex",
+        "confidence": 1,
+        "probabilities": {
+          "complex": 1,
+          "simple": 0,
+          "standard": 0
+        },
+        "source": "jev",
+        "model": "jev-1.13.0",
+        "latency_ms": 122,
+        "usage": {
+          "input_tokens": 461,
+          "output_tokens": 40,
+          "total_tokens": 501,
+          "simulated": false
+        },
+        "cost_nano_usd": 19362
+      },
+      "wall_ms": 122.79,
+      "simulated_completion_cost_nano_usd": 130000,
+      "simulated_all_reasoning_cost_nano_usd": 130000
+    }
+  ]
+}

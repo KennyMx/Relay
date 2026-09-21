@@ -1,4 +1,4 @@
-.PHONY: test check run integration verify security
+.PHONY: test check run integration verify security evaluate charts
 
 test:
 	go test -race ./...
@@ -11,6 +11,10 @@ integration:
 	docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
 verify:
 	docker compose exec -T gateway relay-verify
+evaluate:
+	docker compose exec -T gateway relay-evaluate
+charts:
+	go run ./cmd/charts
 security:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 	go run github.com/securego/gosec/v2/cmd/gosec@v2.29.0 ./...

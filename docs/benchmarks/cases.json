@@ -1,0 +1,62 @@
+[
+  {
+    "id": "greeting",
+    "prompt": "Say hello in French.",
+    "expected": "simple"
+  },
+  {
+    "id": "extract",
+    "prompt": "Extract the email from: Contact us at support@example.org.",
+    "expected": "simple"
+  },
+  {
+    "id": "rewrite",
+    "prompt": "Rewrite politely: Send me the invoice today.",
+    "expected": "simple"
+  },
+  {
+    "id": "fact",
+    "prompt": "What is the capital of Japan?",
+    "expected": "simple"
+  },
+  {
+    "id": "function",
+    "prompt": "Write a Go function that removes duplicate strings while preserving order.",
+    "expected": "standard"
+  },
+  {
+    "id": "explain",
+    "prompt": "Explain how a binary search tree works, with an example.",
+    "expected": "standard"
+  },
+  {
+    "id": "compare",
+    "prompt": "Compare slices and arrays in Go with two examples.",
+    "expected": "standard"
+  },
+  {
+    "id": "query",
+    "prompt": "Write a SQL query that returns the three customers with the most orders.",
+    "expected": "standard"
+  },
+  {
+    "id": "architecture",
+    "prompt": "Design a distributed rate limiter for three regions. Analyze consistency, network partitions, hot keys, and clock skew.",
+    "expected": "complex"
+  },
+  {
+    "id": "proof",
+    "prompt": "Prove that every finite tree with at least two vertices has at least two leaves, and derive a linear-time leaf-pruning algorithm.",
+    "expected": "complex"
+  },
+  {
+    "id": "debug",
+    "prompt": "Diagnose a race condition and deadlock in a worker pool where producers close a shared channel while consumers enqueue retries. Propose a cancellation-safe design.",
+    "expected": "complex"
+  },
+  {
+    "id": "tradeoffs",
+    "prompt": "Design a payment ledger with idempotency and transactional outbox delivery. Analyze crash recovery, duplicate delivery, and consistency tradeoffs.",
+    "expected": "complex"
+  }
+]

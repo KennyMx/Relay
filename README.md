@@ -1,26 +1,26 @@
 # Relay
 
 [![verify](https://github.com/KennyMx/Relay/actions/workflows/ci.yml/badge.svg)](https://github.com/KennyMx/Relay/actions/workflows/ci.yml)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**One self-hosted API for OpenAI, Anthropic, Cohere, and local mocks.** Relay normalizes text chat requests, routes models, falls back on retryable provider failures, enforces per-key quotas, and records token usage, latency, and estimated cost.
+**A self-hosted LLM gateway that uses Jev to classify request complexity and select a model—with bounded fallback, shared quotas, and a durable usage ledger.**
 
-**Go · PostgreSQL · Redis · Docker Compose.** Relay includes an embedded operator console for issuing requests, inspecting fallback attempts, tracking usage, and managing keys. The default routes use deterministic local providers: **$0 in API charges**, with no external service account needed.
+Send `model: "auto"` to classify a task as simple, standard, or complex and route it to a configured model. Or choose a route explicitly. OpenAI, Anthropic, Cohere, and mock providers share one text-chat API. Relay normalizes provider responses, enforces per-key request quotas in Redis, and records every provider attempt in PostgreSQL. Its embedded console lets operators send requests, inspect failures, and review token usage and estimated cost.
 
-```mermaid
-flowchart LR
-    C[Client] --> G[Go HTTP gateway]
-    G --> K[Relay API key validation]
-    K <--> P[(PostgreSQL)]
-    K --> B[Redis token bucket]
-    B --> R[Model router and bounded fallback]
-    R --> O[OpenAI]
-    R --> A[Anthropic]
-    R --> H[Cohere]
-    R --> M[Mock]
-    O & A & H & M --> L[Usage and cost ledger]
-    L --> P
-    L --> N[Normalized JSON response]
-```
+**Go · PostgreSQL · Redis · Docker Compose** — one gateway binary, with plain HTML/CSS/JavaScript embedded in it.
+
+## What you can verify
+
+| Capability | Implementation | Evidence |
+| --- | --- | --- |
+| Automatic model selection | Jev Choice classifier, confidence threshold, bounded deadline, offline baseline | [Classification tests](internal/classifier/jev_test.go) · [Routing tests](internal/router/automatic_test.go) |
+| Provider independence | One Go interface; OpenAI, Anthropic, Cohere, mock adapters | [Adapter fixture tests](internal/provider/http_test.go) |
+| Partial-failure handling | Per-attempt deadlines, cancellation, bounded ordered fallback | [Router tests](internal/router/router_test.go) |
+| Shared quotas | Atomic Redis Lua token bucket using server time | [Concurrent Redis tests](internal/ratelimit/bucket_test.go) |
+| Durable request history | Pending record before upstream work; transactional attempt finalization | [Ledger tests](internal/store/store_test.go) |
+| Access isolation | Hashed keys, revocation, history scoped to the authenticated key | [HTTP tests](internal/api/api_test.go) |
+| Cost accounting | Integer nano-USD arithmetic; simulated usage explicitly labeled | [Pricing tests](internal/pricing/pricing_test.go) |
 
 ## Quick start
 
@@ -37,192 +37,88 @@ The gateway and operator console are available at [http://localhost:8080](http:/
 
 Open your local `.env` privately, copy `RELAY_ADMIN_TOKEN`, and select **Create key** in the console. There is no shared admin password. The console reveals the raw Relay key once, then keeps it only in memory. Disconnecting or reloading requires reconnection with your saved key; it is not written to browser storage. Disconnect also clears prompts and request data from the page.
 
-For a repeatable command-line verification of the entire running application:
+Verify the running service with one command:
 
 ```sh
 docker compose exec -T gateway relay-verify
 ```
 
-The verification creates a temporary Relay key, exercises success plus 429/500/timeout fallback, checks stored attempts and simulated costs, exhausts the key's quota, and verifies revocation. Expected output includes:
+This exercises successful requests, 429/500/timeout fallback, durable attempt records, per-key quotas, and revocation. The shipped `local` classifier and mock completion routes run without credentials or API charges. Jev is an explicit opt-in external service; see [setup and policy](docs/automatic-routing.md).
 
-```text
-PASS chat           request=<id> attempts=1 tokens=6 simulated_cost=$0.00001000
-PASS fallback-rate-limit    request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
-PASS fallback-server-error request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
-PASS fallback-timeout      request=<id> attempts=2 tokens=6 simulated_cost=$0.00001000
-PASS per-key quota returns HTTP 429; verification key will now be revoked
+`docker compose down` stops services and retains data. Set `RELAY_PORT` in `.env` if port 8080 is occupied.
+
+## Operator console
+
+The console uses the actual gateway API and stored request data. Create a key, choose a route, send a completion, then inspect the ordered attempts and raw ledger JSON. History is paginated; summary cards describe the current page. Provider cost estimates and simulated costs are shown separately.
+
+## Jev routing, measured
+
+The 12-case smoke evaluation returned valid Jev classifications for **12/12 requests**, with **177 ms median** and **523 ms p95** wall time. Final routes matched the manually assigned reference tiers on **11/12 cases**; one low-confidence result selected the default route. This is a small synthetic sample, not a general accuracy or throughput claim.
+
+![Measured Jev classification latency by request](docs/benchmarks/latency.svg)
+
+![Illustrative model routing costs using mock token usage](docs/benchmarks/cost.svg)
+
+[Inputs](docs/benchmarks/cases.json) · [Live Jev results](docs/benchmarks/jev.json) · [Offline baseline](docs/benchmarks/local.json) · [Methodology and reproduction](docs/automatic-routing.md#reproduce-the-evaluation)
+
+To enable Jev, privately set `JEV_API_KEY` and `RELAY_CLASSIFIER=jev` in `.env`, then recreate the gateway. Jev receives the messages and can consume credits. Completion costs and classification costs are recorded separately. The default local setup remains free.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    C[Client] --> G[Go HTTP gateway]
+    G --> K[Relay API key validation]
+    K <--> P[(PostgreSQL)]
+    K --> B[Redis token bucket]
+    B --> J[Jev or offline classification]
+    J --> R[Model router and bounded fallback]
+    R --> O[OpenAI]
+    R --> A[Anthropic]
+    R --> H[Cohere]
+    R --> M[Mock]
+    O & A & H & M --> L[Usage and cost ledger]
+    L --> P
+    L --> N[Normalized JSON response]
 ```
 
-`docker compose down` stops the stack while retaining the database and Redis volumes. Use `docker compose up -d --wait` to start in the background. Change `RELAY_PORT` in `.env` if port 8080 is occupied.
+The gateway validates access and claims one quota token before attempting upstream work. PostgreSQL and Redis are shared state; gateway instances do not keep a private quota counter. If either dependency is unavailable, Relay prevents upstream work. A separate finalization deadline lets the gateway record attempts even after a client disconnects.
 
-## API examples
+Read [the design decisions and failure boundaries](docs/design.md) for tradeoffs, including why retries cannot guarantee exactly-once provider billing.
 
-### Create a Relay key
+## Use the API
 
-Key administration uses the unique `RELAY_ADMIN_TOKEN` generated in your local `.env`. Load it into your shell without echoing it:
-
-```sh
-set -a
-. ./.env
-set +a
-curl -sS http://localhost:8080/v1/keys \
-  -H "Authorization: Bearer $RELAY_ADMIN_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"local-console","requests_per_minute":60,"burst":10}'
-```
-
-The response contains `id`, quota settings, creation time, and `api_key`. Copy the returned `api_key` into your shell. **This is the only response that reveals the full key.** PostgreSQL stores its SHA-256 hash; raw Relay keys and provider credentials are never logged.
+After creating a key, save it locally as `RELAY_KEY`:
 
 ```sh
-export RELAY_KEY='rl_live_<copy-the-returned-key>'
 curl -sS http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer $RELAY_KEY" \
   -H 'Content-Type: application/json' \
-  -d '{"model":"fallback-rate-limit","messages":[{"role":"user","content":"hello world"}],"max_tokens":64}'
+  -d '{"model":"auto","messages":[{"role":"user","content":"hello world"}],"max_tokens":64}'
 ```
 
-Representative response (ID and timing vary):
+For a fallback example, change `model` to `fallback-rate-limit`: the configured primary returns 429, Relay tries the secondary, and the normalized completion contains `fallback_count: 1`. Inspect its request ID in the console or `GET /v1/requests/{id}` to see both attempts. Default mock routes also cover 500, timeout, and complete provider failure.
 
-```json
-{
-  "id": "<request-id>",
-  "object": "chat.completion",
-  "created": 1789070000,
-  "model": "mock-v1",
-  "provider": "mock",
-  "route": "fallback-rate-limit",
-  "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello from Relay mock."}}],
-  "usage": {"input_tokens": 2, "output_tokens": 4, "total_tokens": 6, "simulated": true},
-  "cost_nano_usd": 10000,
-  "latency_ms": 1,
-  "fallback_count": 1
-}
-```
+[API contract (OpenAPI)](docs/openapi.json) · [API examples and operations](docs/operations.md) · [Routing configuration](config/relay.json) · [Real-provider template](config/real.example.json)
 
-### Inspect history and revoke a key
+Real completion providers are optional and require your own credentials and current model pricing. The Jev adapter has also been verified against the live official API with the recorded synthetic corpus. Their adapters are tested against local HTTP fixtures; **no paid provider calls are required for development or testing**.
+
+## Test
 
 ```sh
-curl -sS 'http://localhost:8080/v1/requests?limit=20&offset=0' \
-  -H "Authorization: Bearer $RELAY_KEY"
-curl -sS http://localhost:8080/v1/requests/REQUEST_ID \
-  -H "Authorization: Bearer $RELAY_KEY"
-curl -i -X DELETE http://localhost:8080/v1/keys/KEY_ID \
-  -H "Authorization: Bearer $RELAY_ADMIN_TOKEN"
-curl -sS http://localhost:8080/health
-```
-
-| Endpoint | Authentication | Behavior |
-| --- | --- | --- |
-| `POST /v1/chat/completions` | Relay key | Unified text completion; quotas apply |
-| `GET /v1/routes` | Relay key | Available routes, ordered targets, and current key metadata |
-| `GET /v1/requests` | Relay key | Own request history; `limit` 1–100, `offset` 0–100000 |
-| `GET /v1/requests/{id}` | Relay key | Own request metadata and ordered provider attempts |
-| `POST /v1/keys` | Admin token | Create key with `requests_per_minute` and `burst` (1–100000) |
-| `DELETE /v1/keys/{id}` | Admin token | Revoke key; returns 204, or 404 if missing/already revoked |
-| `GET /health` | None | 200 when PostgreSQL and Redis respond; otherwise 503 |
-
-Invalid keys return 401. Revocation affects subsequent authentication checks; already accepted requests may finish. API errors have an `error.code` and `error.message`. Accepted completions carry `X-Request-ID`, including provider failures. History cannot reveal another key's requests.
-
-The API intentionally supports **non-streaming text only**: `system`, `user`, and `assistant` messages, a route alias in `model`, optional `provider`, and `max_tokens` (default 256, maximum 8192). System messages must precede conversation messages, with at least one user message. Unknown fields, including `stream`, are rejected. Bodies are limited to 64 KiB and 100 messages. This is a unified API, not a complete OpenAI API replacement.
-
-## Routing and fallback
-
-Edit [config/relay.json](config/relay.json), then restart the gateway. `model` names a **route alias**, whose ordered targets map to concrete provider models. Omitting it selects `default_route`; the route's first target is the default provider.
-
-| Default route | Attempt sequence |
-| --- | --- |
-| `chat` | mock success |
-| `fallback-rate-limit` | mock 429 → mock success |
-| `fallback-server-error` | mock 500 → mock success |
-| `fallback-timeout` | mock timeout → mock success |
-| `unavailable` | mock 500 → HTTP 502, with a failed ledger record |
-
-An explicit `"provider":"mock"` on `fallback-rate-limit` starts at that target, skipping the mock 429. Subsequent targets remain eligible fallbacks. Unknown routes/providers return 400 before consuming quota. Provider names must be unique within a route.
-
-Relay attempts each eligible target **at most once**, bounded by `max_attempts` (1–5). It tries the next target after **429, 500, 502, 503, 504, or timeout**. Authentication and other non-retryable failures stop immediately. There is no same-provider retry loop or background retry. Overall and per-attempt deadlines are configurable; caller cancellation stops further attempts. Fallback switches to a different target immediately, so it does not sleep for the failed provider's `Retry-After`.
-
-For a real route, the same client request can follow OpenAI 429 → Anthropic success. The response identifies the provider and model that actually completed it. All attempted targets, including failures, appear in request detail.
-
-## Real provider configuration (optional)
-
-Real calls may incur provider charges. The repository's tests use local HTTP fixtures for all three adapters; no live provider credentials were used to verify them.
-
-1. Generate `.env` using the quick-start command, then set the desired provider API keys. Keep `.env` untracked. `.env.example` documents the settings but intentionally contains no usable credentials.
-2. Use [config/real.example.json](config/real.example.json) as a template for `config/relay.json`. Replace **all model placeholders and illustrative prices** with models available to your account and their current rates. Remove unused providers/targets and their prices.
-3. Recreate the gateway with `docker compose up --build -d --wait` so environment changes take effect.
-
-| Adapter | Environment variable | Wire API and usage |
-| --- | --- | --- |
-| OpenAI | `OPENAI_API_KEY` | [Chat Completions](https://platform.openai.com/docs/api-reference/chat/create); prompt/completion tokens |
-| Anthropic | `ANTHROPIC_API_KEY` | [Messages](https://platform.claude.com/docs/en/api/http/messages/create); input/output tokens; system messages moved to top-level `system` |
-| Cohere | `COHERE_API_KEY` | [Chat v2](https://docs.cohere.com/v2/reference/chat); `usage.billed_units` input/output counts |
-
-Configured real providers require their credentials at startup. Endpoints are fixed to provider HTTPS origins; redirects are not followed. The client never supplies provider credentials or endpoint URLs. Missing/invalid upstream usage is treated as an invalid response, rather than falsely reporting a free completion.
-
-## Quotas, ledger, and cost tracking
-
-**Redis token bucket.** Each Relay key has an initial `burst` of request tokens. Tokens refill continuously at `requests_per_minute / 60`, capped at `burst`. One accepted chat call consumes one token, regardless of its fallback count. A Lua script uses Redis server time to atomically refill and consume, including across concurrent gateway instances. Idle buckets expire after a full refill interval. Exhaustion returns 429 with `Retry-After` and `X-RateLimit-Remaining`; Redis failure returns 503 and prevents upstream work. This is a request quota, not an LLM-token or billing limit. Redis uses AOF persistence; abrupt failures can lose its most recent unflushed quota updates.
-
-**PostgreSQL ledger.** Numbered, embedded SQL migrations run under a transaction and advisory lock. Before upstream work, Relay inserts a `pending` request. It then atomically finalizes request metadata and individual attempts: provider/model, timestamp, input/output/total tokens, latency, estimated cost, status, sanitized error code, and fallback count. Prompts, completions, and upstream error bodies are not stored. Auth failures, invalid requests, and quota rejections do not create provider ledger entries.
-
-Finalization has a separate three-second deadline, so client cancellation still allows audit persistence. If saving fails, Relay returns 503 rather than claiming a recorded success. A process crash can leave `pending` rows; there is no recovery worker. PostgreSQL and Redis data persist in named Docker volumes.
-
-**Live cost estimates.** The response and ledger expose `cost_nano_usd`, calculated from each successful attempt's reported usage and configured per-token prices:
-
-```text
-cost_nano_usd = input_tokens × input_rate + output_tokens × output_rate
-USD = cost_nano_usd / 1,000,000,000
-```
-
-For example, $0.15 per million input tokens is **150 nano-USD per input token**. Prices must exist for every target; missing prices fail startup. Integer arithmetic avoids floating-point rounding. Cohere counts billed units, which can differ from raw token counts.
-
-Mock input usage is the count of whitespace-separated words; its fixed four-word output is truncated by `max_tokens`. Both response and ledger mark this as `simulated: true`. Mock prices are illustrative: the example's $0.00001000 estimate is **not an actual charge**.
-
-These are estimates, not invoice reconciliation. Failed/timed-out attempts have zero *known* usage and cost; an upstream provider might still bill work that Relay could not observe. Cached-token discounts, reasoning-specific pricing, and other billing adjustments are outside this text-only implementation.
-
-Inspect the persisted evidence directly:
-
-```sh
-docker compose exec postgres psql -U relay -d relay -c \
-  'SELECT id, provider, model, total_tokens, simulated, latency_ms, cost_nano_usd, status, fallback_count FROM requests ORDER BY created_at DESC LIMIT 10;'
-docker compose exec postgres psql -U relay -d relay -c \
-  'SELECT request_id, number, provider, status, error_code, latency_ms FROM provider_attempts ORDER BY started_at DESC LIMIT 10;'
-```
-
-## Testing and local development
-
-Docker-only integration tests run **real PostgreSQL and Redis**, including atomic concurrent quotas, refill, key validation/revocation, transaction rollback, request isolation, deadlines, and all mock routes:
-
-```sh
+# Real PostgreSQL + Redis; race detector and go vet
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
+
+# UI behavior and credential lifecycle (Node is test tooling only)
+node --test internal/webui/ui_security_test.cjs
 ```
 
-This runs `go test -race -count=1 ./...` and `go vet ./...`. Tests create and clean up their own records and bucket keys; no database flush is used. GitHub Actions builds Compose, runs this suite, and verifies the live API with `relay-verify`.
+GitHub Actions runs these checks, live service verification, dependency/static security checks, and a full-history secret scan. With Go installed, `make test` runs unit tests; service tests explicitly skip unless integration mode is enabled.
 
-With Go 1.26+ installed (also used by Docker and CI):
+## Scope
 
-```sh
-make test       # Unit tests; service integration tests explicitly skip
-make check      # go vet and formatting
-make integration
-make verify     # Against the running Compose gateway
-make security   # Go vulnerability scan, UI regressions (Node), and Git secret scan
-```
+Relay supports non-streaming text chat, not the complete provider API surface. It does not store prompts or completions, implement accounts or payments, or claim production deployment results. Costs are estimates: timed-out providers may still bill work, and process crashes can leave pending ledger rows. Real-provider model names and prices must be configured by the operator.
 
-To run the gateway outside Docker, generate credentials with `go run ./cmd/relay init`, load the environment, and provide reachable `DATABASE_URL` and `REDIS_URL`, then `go run ./cmd/relay`. Compose does not publish database/cache ports. `RELAY_CONFIG` defaults to `config/relay.json`, and `RELAY_ADDR` to `:8080`. For integration tests against your own services, set `RELAY_INTEGRATION=1` along with those database/cache URLs and run `go test -race ./...`.
-
-The HTTP port binds to loopback. Only `localhost`, `127.0.0.1`, and `::1` Host headers are accepted by default, and cross-origin browser requests are rejected. For your own domain, set `RELAY_ALLOWED_HOSTS` to a comma-separated list of exact hostnames (no scheme or port), including loopback hosts for health checks, and use a TLS reverse proxy that preserves the Host header. Node is used only for UI security tests; it is not a service runtime.
-
-See [SECURITY.md](SECURITY.md) for the security boundary, credential rotation, and reporting guidance. Existing installations upgrading from shared local passwords must rotate them as described there; changing `.env` alone does not change the password in an existing PostgreSQL volume.
-
-## Code map
-
-- `cmd/relay`: startup, dependency checks, migrations, graceful shutdown.
-- `cmd/verify`: executable end-to-end service verification.
-- `internal/provider`: shared interface, four adapters, local HTTP fixture tests.
-- `internal/router`: target selection, deadlines, bounded fallback.
-- `internal/ratelimit`, `internal/keys`, `internal/pricing`: quota and credential/cost logic.
-- `internal/api`, `internal/store`, `migrations`: HTTP API and durable audit trail.
-- `internal/webui`: embedded, dependency-free operator console.
+The default HTTP binding is loopback. For network exposure, configure allowed hosts and a TLS reverse proxy. See [security and credential rotation](SECURITY.md).
 
 Licensed under [MIT](LICENSE).

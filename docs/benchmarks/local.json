@@ -1,0 +1,264 @@
+{
+  "timestamp": "2026-09-21T04:12:16Z",
+  "mode": "local",
+  "environment": "linux/arm64 go1.26.8",
+  "corpus": "docs/benchmarks/cases.json",
+  "cases": 12,
+  "agreement_count": 10,
+  "p50_wall_ms": 0.004,
+  "p95_wall_ms": 0.04,
+  "records": [
+    {
+      "id": "greeting",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.006,
+      "simulated_completion_cost_nano_usd": 1200,
+      "simulated_all_reasoning_cost_nano_usd": 60000
+    },
+    {
+      "id": "extract",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.007,
+      "simulated_completion_cost_nano_usd": 1600,
+      "simulated_all_reasoning_cost_nano_usd": 80000
+    },
+    {
+      "id": "rewrite",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.001,
+      "simulated_completion_cost_nano_usd": 1500,
+      "simulated_all_reasoning_cost_nano_usd": 75000
+    },
+    {
+      "id": "fact",
+      "expected": "simple",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.001,
+      "simulated_completion_cost_nano_usd": 1400,
+      "simulated_all_reasoning_cost_nano_usd": 70000
+    },
+    {
+      "id": "function",
+      "expected": "standard",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.004,
+      "simulated_completion_cost_nano_usd": 1900,
+      "simulated_all_reasoning_cost_nano_usd": 95000
+    },
+    {
+      "id": "explain",
+      "expected": "standard",
+      "selected": "balanced",
+      "reason": "classified",
+      "classification": {
+        "tier": "standard",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.001,
+      "simulated_completion_cost_nano_usd": 18000,
+      "simulated_all_reasoning_cost_nano_usd": 90000
+    },
+    {
+      "id": "compare",
+      "expected": "standard",
+      "selected": "balanced",
+      "reason": "classified",
+      "classification": {
+        "tier": "standard",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.001,
+      "simulated_completion_cost_nano_usd": 17000,
+      "simulated_all_reasoning_cost_nano_usd": 85000
+    },
+    {
+      "id": "query",
+      "expected": "standard",
+      "selected": "fast",
+      "reason": "classified",
+      "classification": {
+        "tier": "simple",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.04,
+      "simulated_completion_cost_nano_usd": 2100,
+      "simulated_all_reasoning_cost_nano_usd": 105000
+    },
+    {
+      "id": "architecture",
+      "expected": "complex",
+      "selected": "reasoning",
+      "reason": "classified",
+      "classification": {
+        "tier": "complex",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.005,
+      "simulated_completion_cost_nano_usd": 125000,
+      "simulated_all_reasoning_cost_nano_usd": 125000
+    },
+    {
+      "id": "proof",
+      "expected": "complex",
+      "selected": "reasoning",
+      "reason": "classified",
+      "classification": {
+        "tier": "complex",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.003,
+      "simulated_completion_cost_nano_usd": 145000,
+      "simulated_all_reasoning_cost_nano_usd": 145000
+    },
+    {
+      "id": "debug",
+      "expected": "complex",
+      "selected": "reasoning",
+      "reason": "classified",
+      "classification": {
+        "tier": "complex",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.004,
+      "simulated_completion_cost_nano_usd": 160000,
+      "simulated_all_reasoning_cost_nano_usd": 160000
+    },
+    {
+      "id": "tradeoffs",
+      "expected": "complex",
+      "selected": "reasoning",
+      "reason": "classified",
+      "classification": {
+        "tier": "complex",
+        "source": "local",
+        "latency_ms": 0,
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "simulated": true
+        },
+        "cost_nano_usd": 0
+      },
+      "wall_ms": 0.004,
+      "simulated_completion_cost_nano_usd": 130000,
+      "simulated_all_reasoning_cost_nano_usd": 130000
+    }
+  ]
+}
