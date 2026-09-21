@@ -10,6 +10,12 @@ Send `model: "auto"` to classify a task as simple, standard, or complex and rout
 
 **Go · PostgreSQL · Redis · Docker Compose** — one gateway binary, with plain HTML/CSS/JavaScript embedded in it.
 
+**[Open Relay](https://relay-three-iota.vercel.app) · [Try a request](https://relay-three-iota.vercel.app/workspace) · [Explore the architecture](https://relay-three-iota.vercel.app/architecture)**
+
+The public workspace runs Relay’s real Go router with a local classifier and clearly labeled simulated completions. Choose a task and inject a 429, 500, or timeout to follow automatic recovery. No signup or API key required. The full Docker gateway adds authenticated access, Redis quotas, PostgreSQL history, and optional real providers.
+
+![Relay homepage](docs/screenshots/home.jpg)
+
 ## What you can verify
 
 | Capability | Implementation | Evidence |
@@ -33,7 +39,7 @@ docker compose run --rm --build --no-deps --user "$(id -u):$(id -g)" -v "$PWD:/s
 docker compose up --build
 ```
 
-The gateway and operator console are available at [http://localhost:8080](http://localhost:8080). PostgreSQL and Redis stay on the internal Docker network. Migrations run automatically before the gateway starts. The one-time `init` command creates an ignored `.env` file with unique random admin/database credentials and owner-only permissions. It refuses to replace an existing file. On Windows, omit the `--user` option and mount the repository's absolute path at `/setup`.
+The website is available at [http://localhost:8080](http://localhost:8080); open the [operator console](http://localhost:8080/console) to manage the gateway. PostgreSQL and Redis stay on the internal Docker network. Migrations run automatically before the gateway starts. The one-time `init` command creates an ignored `.env` file with unique random admin/database credentials and owner-only permissions. It refuses to replace an existing file. On Windows, omit the `--user` option and mount the repository's absolute path at `/setup`.
 
 Open your local `.env` privately, copy `RELAY_ADMIN_TOKEN`, and select **Create key** in the console. There is no shared admin password. The console reveals the raw Relay key once, then keeps it only in memory. Disconnecting or reloading requires reconnection with your saved key; it is not written to browser storage. Disconnect also clears prompts and request data from the page.
 
@@ -47,8 +53,13 @@ This exercises successful requests, 429/500/timeout fallback, durable attempt re
 
 `docker compose down` stops services and retains data. Set `RELAY_PORT` in `.env` if port 8080 is occupied.
 
-## Operator console
+## Request workspace and operator console
 
+![Request workspace showing classification and provider fallback](docs/screenshots/workspace.jpg)
+
+`/workspace` is the public, credential-free request tool. It shows routing decisions, ordered attempts, latency, simulated usage and cost, and raw JSON. Its latest 20 requests stay only in browser memory; clearing the session also cancels in-flight work.
+
+`/console` operates your self-hosted gateway with a Relay API key.
 The console uses the actual gateway API and stored request data. Create a key, choose a route, send a completion, then inspect the ordered attempts and raw ledger JSON. History is paginated; summary cards describe the current page. Provider cost estimates and simulated costs are shown separately.
 
 ## Jev routing, measured
@@ -84,6 +95,8 @@ flowchart LR
 
 The gateway validates access and claims one quota token before attempting upstream work. PostgreSQL and Redis are shared state; gateway instances do not keep a private quota counter. If either dependency is unavailable, Relay prevents upstream work. A separate finalization deadline lets the gateway record attempts even after a client disconnects.
 
+![Relay architecture guide](docs/screenshots/architecture.jpg)
+
 Read [the design decisions and failure boundaries](docs/design.md) for tradeoffs, including why retries cannot guarantee exactly-once provider billing.
 
 ## Use the API
@@ -110,14 +123,18 @@ Real completion providers are optional and require your own credentials and curr
 docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
 
 # UI behavior and credential lifecycle (Node is test tooling only)
-node --test internal/webui/ui_security_test.cjs
+node --test internal/webui/*test.cjs
 ```
 
 GitHub Actions runs these checks, live service verification, dependency/static security checks, and a full-history secret scan. With Go installed, `make test` runs unit tests; service tests explicitly skip unless integration mode is enabled.
 
+## Vercel deployment
+
+The public site runs a dedicated Go entrypoint, `cmd/server`, with no external provider credentials or database dependency. The full authenticated gateway remains self-hostable with Docker. See [deployment instructions and runtime boundaries](docs/deployment.md).
+
 ## Scope
 
-Relay supports non-streaming text chat, not the complete provider API surface. It does not store prompts or completions, implement accounts or payments, or claim production deployment results. Costs are estimates: timed-out providers may still bill work, and process crashes can leave pending ledger rows. Real-provider model names and prices must be configured by the operator.
+Relay supports non-streaming text chat, not the complete provider API surface. It does not store prompts or completions, implement accounts or payments, or provide exactly-once upstream execution. Costs are estimates: timed-out providers may still bill work, and process crashes can leave pending ledger rows. Real-provider model names and prices must be configured by the operator.
 
 The default HTTP binding is loopback. For network exposure, configure allowed hosts and a TLS reverse proxy. See [security and credential rotation](SECURITY.md).
 
