@@ -103,3 +103,64 @@ test('an invalid key is cleared and visibly rejected', async () => {
   assert.equal(element('apiKeyInput').value, '');
   assert.equal(element('accessError').textContent, 'invalid api key');
 });
+
+test('history navigates older pages and separates simulated from provider cost', async () => {
+  const paths = [];
+  const rows = Array.from({length: 25}, (_, i) => ({id: `request-${i}`, status: 'success', usage: {total_tokens: 10, simulated: i !== 0}, cost_nano_usd: 1000000000}));
+  const {element} = consoleHarness(async (path) => {
+    paths.push(path);
+    if (path === '/v1/routes') return reply({routes: [], key: {id: 'key-id'}});
+    if (path.includes('offset=25')) return reply({data: []});
+    if (path.startsWith('/v1/requests')) return reply({data: rows});
+    return reply({status: 'ok'});
+  });
+  element('apiKeyInput').value = 'rl_live_' + 'f'.repeat(64);
+  await trigger(element('connectForm'), 'submit');
+  assert.equal(element('costMetric').textContent, '$1.00');
+  assert.match(element('costCaption').textContent, /24\.00.*excluded/);
+  assert.equal(element('previousPage').disabled, true);
+  assert.equal(element('nextPage').disabled, false);
+  await trigger(element('nextPage'));
+  assert.ok(paths.includes('/v1/requests?limit=25&offset=25'));
+  assert.equal(element('nextPage').disabled, true);
+  assert.equal(element('previousPage').disabled, false);
+  await trigger(element('previousPage'));
+  assert.match(element('pageCaption').textContent, /Entries 1–25/);
+});
+
+test('failed completion exposes its request ID for inspection and clears stale output', async () => {
+  const {element} = consoleHarness(async (path) => {
+    if (path === '/v1/chat/completions') return {ok: false, status: 502, headers: new Headers({'X-Request-ID': 'failed-request'}), json: async () => ({error: {code: 'upstream_unavailable'}})};
+    if (path === '/v1/requests/failed-request') return reply({id: 'failed-request', route: 'unavailable', status: 'error', attempts: []});
+    return reply({routes: [], key: {id: 'key-id'}, data: []});
+  });
+  element('apiKeyInput').value = 'rl_live_' + 'a'.repeat(64);
+  await trigger(element('connectForm'), 'submit');
+  element('promptInput').value = 'hello';
+  element('maxTokensInput').value = '64';
+  await trigger(element('chatForm'), 'submit');
+  assert.match(element('chatError').textContent, /upstream unavailable/);
+  await trigger(element('inspectLastButton'));
+  assert.match(element('requestJSON').textContent, /failed-request/);
+  await trigger(element('disconnectButton'));
+  assert.equal(element('requestJSON').textContent, '');
+});
+
+test('automatic decisions display confidence and escape untrusted metadata', async () => {
+  const {element} = consoleHarness(async (path) => {
+    if (path === '/v1/routes') return reply({routes: [{name:'auto',targets:[]}], auto_routing:{routes:{simple:'fast',standard:'balanced',complex:'reasoning'},fallback_route:'balanced',timeout_ms:1500},classifier:'jev',key:{id:'key-id'}});
+    if (path === '/v1/chat/completions') return reply({id:'request-id',provider:'mock',model:'mock-fast',latency_ms:100,usage:{simulated:true,total_tokens:5},routing:{mode:'auto',route:'fast',reason:'classified',classification:{source:'jev',tier:'<img src=x>',confidence:.9,latency_ms:90,cost_nano_usd:500}}});
+    return reply({data:[]});
+  });
+  element('apiKeyInput').value='rl_live_'+'e'.repeat(64);
+  await trigger(element('connectForm'),'submit');
+  element('routeSelect').value='auto';
+  await trigger(element('routeSelect'),'change');
+  assert.match(element('routeFlow').innerHTML,/Jev classification/);
+  assert.equal(element('providerSelect').disabled,true);
+  element('promptInput').value='hello';element('maxTokensInput').value='64';
+  await trigger(element('chatForm'),'submit');
+  assert.match(element('completionStats').innerHTML,/90% confidence/);
+  assert.match(element('completionStats').innerHTML,/&lt;img src=x&gt;/);
+  assert.doesNotMatch(element('completionStats').innerHTML,/<img/);
+});

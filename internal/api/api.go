@@ -96,6 +96,9 @@ func (s *Server) routes(w http.ResponseWriter, _ *http.Request, key store.Key) {
 		targets := append([]router.Target(nil), route.Targets...)
 		routes = append(routes, routeInfo{Name: name, Targets: targets})
 	}
+	if s.Router.Auto != nil {
+		routes = append(routes, routeInfo{Name: "auto", Targets: []router.Target{}})
+	}
 	sort.Slice(routes, func(i, j int) bool {
 		if routes[i].Name == s.Router.Default {
 			return true
@@ -105,7 +108,7 @@ func (s *Server) routes(w http.ResponseWriter, _ *http.Request, key store.Key) {
 		}
 		return routes[i].Name < routes[j].Name
 	})
-	write(w, http.StatusOK, map[string]any{"default_route": s.Router.Default, "routes": routes, "key": key})
+	write(w, http.StatusOK, map[string]any{"default_route": s.Router.Default, "routes": routes, "key": key, "auto_routing": s.Router.Auto, "classifier": s.Router.ClassifierMode})
 }
 func write(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -248,7 +251,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, key store.Key) {
 		fail(w, 400, "user_message_required")
 		return
 	}
-	targets, err := s.Router.Select(in.Model, in.Provider)
+	err := s.Router.ValidateSelection(in.Model, in.Provider)
 	if err != nil {
 		fail(w, 400, "unknown_route_or_provider")
 		return
@@ -275,7 +278,15 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, key store.Key) {
 		fail(w, 503, "ledger_unavailable")
 		return
 	}
-	result, attempts, callErr := s.Router.Complete(r.Context(), targets, provider.Request{Messages: in.Messages, MaxTokens: in.MaxTokens})
+	req := provider.Request{Messages: in.Messages, MaxTokens: in.MaxTokens}
+	targets, routing, callErr := s.Router.Resolve(r.Context(), in.Model, in.Provider, req)
+	record.Routing = &routing
+	record.Route = routing.Route
+	var result provider.Result
+	var attempts []router.Attempt
+	if callErr == nil {
+		result, attempts, callErr = s.Router.Complete(r.Context(), targets, req)
+	}
 	record.Attempts = attempts
 	record.Status = "success"
 	record.LatencyMS = time.Since(started).Milliseconds()
@@ -317,7 +328,7 @@ func (s *Server) chat(w http.ResponseWriter, r *http.Request, key store.Key) {
 		fail(w, status, record.ErrorCode)
 		return
 	}
-	write(w, 200, map[string]any{"id": record.ID, "object": "chat.completion", "created": record.CreatedAt.Unix(), "model": record.Model, "provider": record.Provider, "route": record.Route, "choices": []any{map[string]any{"index": 0, "message": provider.Message{Role: "assistant", Content: result.Content}}}, "usage": record.Usage, "cost_nano_usd": record.CostNanoUSD, "latency_ms": record.LatencyMS, "fallback_count": record.FallbackCount})
+	write(w, 200, map[string]any{"id": record.ID, "object": "chat.completion", "created": record.CreatedAt.Unix(), "model": record.Model, "provider": record.Provider, "route": record.Route, "choices": []any{map[string]any{"index": 0, "message": provider.Message{Role: "assistant", Content: result.Content}}}, "usage": record.Usage, "cost_nano_usd": record.CostNanoUSD, "latency_ms": record.LatencyMS, "fallback_count": record.FallbackCount, "routing": record.Routing})
 }
 func (s *Server) list(w http.ResponseWriter, r *http.Request, key store.Key) {
 	limit, offset := 20, 0

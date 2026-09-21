@@ -45,6 +45,7 @@ func (s *Store) RevokeKey(ctx context.Context, id string) (bool, error) {
 }
 
 type Record struct {
+	Routing       *router.Decision `json:"routing,omitempty"`
 	ID            string           `json:"id"`
 	KeyID         string           `json:"-"`
 	CreatedAt     time.Time        `json:"created_at"`
@@ -73,7 +74,7 @@ func (s *Store) Finish(ctx context.Context, r Record) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	_, err = tx.Exec(ctx, `UPDATE requests SET model=$2,provider=$3,input_tokens=$4,output_tokens=$5,total_tokens=$6,simulated=$7,latency_ms=$8,cost_nano_usd=$9,status=$10,error_code=$11,fallback_count=$12 WHERE id=$1`, r.ID, r.Model, r.Provider, r.Usage.InputTokens, r.Usage.OutputTokens, r.Usage.TotalTokens, r.Usage.Simulated, r.LatencyMS, r.CostNanoUSD, r.Status, r.ErrorCode, r.FallbackCount)
+	_, err = tx.Exec(ctx, `UPDATE requests SET model=$2,provider=$3,input_tokens=$4,output_tokens=$5,total_tokens=$6,simulated=$7,latency_ms=$8,cost_nano_usd=$9,status=$10,error_code=$11,fallback_count=$12,route=$13,routing=$14 WHERE id=$1`, r.ID, r.Model, r.Provider, r.Usage.InputTokens, r.Usage.OutputTokens, r.Usage.TotalTokens, r.Usage.Simulated, r.LatencyMS, r.CostNanoUSD, r.Status, r.ErrorCode, r.FallbackCount, r.Route, r.Routing)
 	if err != nil {
 		return err
 	}
@@ -86,13 +87,13 @@ func (s *Store) Finish(ctx context.Context, r Record) error {
 	return tx.Commit(ctx)
 }
 
-const columns = `id,key_id,created_at,route,model,provider,input_tokens,output_tokens,total_tokens,simulated,latency_ms,cost_nano_usd,status,error_code,fallback_count`
+const columns = `id,key_id,created_at,route,model,provider,input_tokens,output_tokens,total_tokens,simulated,latency_ms,cost_nano_usd,status,error_code,fallback_count,routing`
 
 type scanner interface{ Scan(...any) error }
 
 func scanRecord(row scanner) (Record, error) {
 	var r Record
-	err := row.Scan(&r.ID, &r.KeyID, &r.CreatedAt, &r.Route, &r.Model, &r.Provider, &r.Usage.InputTokens, &r.Usage.OutputTokens, &r.Usage.TotalTokens, &r.Usage.Simulated, &r.LatencyMS, &r.CostNanoUSD, &r.Status, &r.ErrorCode, &r.FallbackCount)
+	err := row.Scan(&r.ID, &r.KeyID, &r.CreatedAt, &r.Route, &r.Model, &r.Provider, &r.Usage.InputTokens, &r.Usage.OutputTokens, &r.Usage.TotalTokens, &r.Usage.Simulated, &r.LatencyMS, &r.CostNanoUSD, &r.Status, &r.ErrorCode, &r.FallbackCount, &r.Routing)
 	return r, err
 }
 func (s *Store) List(ctx context.Context, keyID string, limit, offset int) ([]Record, error) {

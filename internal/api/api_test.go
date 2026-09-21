@@ -18,6 +18,7 @@ import (
 )
 
 func TestAPIIntegration(t *testing.T) {
+	t.Setenv("RELAY_CLASSIFIER", "local")
 	if os.Getenv("RELAY_INTEGRATION") != "1" {
 		t.Skip("requires PostgreSQL and Redis; see README")
 	}
@@ -87,6 +88,21 @@ func TestAPIIntegration(t *testing.T) {
 	want(request("POST", "/v1/chat/completions", key.Raw, `{"messages":[],"stream":true}`), 400)
 	want(request("POST", "/v1/chat/completions", key.Raw, `{"model":"missing","messages":[{"role":"user","content":"hi"}]}`), 400)
 	want(request("POST", "/v1/chat/completions", key.Raw, `{"messages":[{"role":"user","content":"hi"}]} {}`), 400)
+	// Automatic decisions survive the real PostgreSQL round trip.
+	for _, tc := range []struct{ prompt, tier, route string }{{"Hello", "simple", "fast"}, {"Explain Go", "standard", "balanced"}, {"Design a distributed database", "complex", "reasoning"}} {
+		response := request("POST", "/v1/chat/completions", key.Raw, `{"model":"auto","messages":[{"role":"user","content":"`+tc.prompt+`"}]}`)
+		want(response, 200)
+		var out struct {
+			ID string `json:"id"`
+		}
+		if err = json.Unmarshal(response.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		recorded, err := db.Get(ctx, key.ID, out.ID)
+		if err != nil || recorded.Routing == nil || recorded.Routing.Classification == nil || recorded.Routing.Classification.Tier != tc.tier || recorded.Route != tc.route {
+			t.Fatal("auto ledger mismatch", recorded, err)
+		}
+	}
 	var recordID string
 	for _, route := range []string{"chat", "fallback-rate-limit", "fallback-server-error", "fallback-timeout"} {
 		response := request("POST", "/v1/chat/completions", key.Raw, `{"model":"`+route+`","messages":[{"role":"user","content":"hello world"}]}`)

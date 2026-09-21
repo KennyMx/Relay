@@ -221,3 +221,26 @@ dialog::backdrop { background: rgba(2,3,6,.76); backdrop-filter: blur(7px); }
   .endpoint-badge, .legend { display: none; }.form-footer { align-items: stretch; flex-direction: column; }.token-field { width: 100%; }
   .detail-grid { grid-template-columns: 1fr 1fr; }.console-footer { align-items: flex-start; flex-direction: column; }
 }
+
+/* Operational details remain readable at desktop and narrow widths. */
+:root { --quiet: #929baa; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.setup-help { font-size: 12px; }
+.setup-help a { color: var(--accent); }
+.usage-kind { display: block; color: var(--muted); font-size: 10px; margin-top: 3px; }
+.table-status.pending { color: var(--amber); background: rgba(240,187,103,.08); }
+.pagination { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 0; color: var(--muted); font-size: 12px; }
+.pagination > div { display: flex; gap: 8px; }
+.detail-context { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.raw-record { margin: 0 24px 24px; color: var(--muted); font-size: 12px; }
+.raw-record summary { cursor: pointer; }
+.raw-record pre { overflow: auto; max-height: 300px; padding: 16px; background: var(--bg); border-radius: 10px; font-size: 11px; }
+#inspectLastButton { margin-top: 14px; }
+@media (max-width: 620px) { .pagination { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+.routing-decision { width:100%; margin-top:12px; padding:14px; border:1px solid var(--border, #344252); border-radius:10px; background:rgba(87,160,255,.06); line-height:1.6; }
+.routing-decision b, .routing-decision span { display:block; }
+.routing-decision span { font-size:12px; opacity:.75; }

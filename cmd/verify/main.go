@@ -70,7 +70,7 @@ func (v verification) run() (runErr error) {
 		Raw string `json:"api_key"`
 	}
 	if err := v.call("POST", "/v1/keys", v.admin, map[string]any{
-		"name": "verification-key", "requests_per_minute": 1, "burst": 4,
+		"name": "verification-key", "requests_per_minute": 1, "burst": 5,
 	}, http.StatusCreated, &key); err != nil {
 		return err
 	}
@@ -117,6 +117,33 @@ func (v verification) run() (runErr error) {
 		}
 		fmt.Printf("PASS %-22s request=%s attempts=%d tokens=%d simulated_cost=$%.8f\n", route, out.ID, len(record.Attempts), out.Usage.Total, float64(out.Cost)/1e9)
 	}
+
+	var automatic struct {
+		ID      string `json:"id"`
+		Route   string `json:"route"`
+		Routing struct {
+			Mode   string `json:"mode"`
+			Reason string `json:"reason"`
+		} `json:"routing"`
+	}
+	if err := v.call("POST", "/v1/chat/completions", key.Raw, map[string]any{"model": "auto", "messages": []map[string]string{{"role": "user", "content": "Say hello in French."}}}, http.StatusOK, &automatic); err != nil {
+		return err
+	}
+	if automatic.Routing.Mode != "auto" || automatic.Route == "" {
+		return fmt.Errorf("missing automatic decision")
+	}
+	var saved struct {
+		Routing struct {
+			Mode string `json:"mode"`
+		} `json:"routing"`
+	}
+	if err := v.call("GET", "/v1/requests/"+automatic.ID, key.Raw, nil, http.StatusOK, &saved); err != nil {
+		return err
+	}
+	if saved.Routing.Mode != "auto" {
+		return fmt.Errorf("missing persisted automatic decision")
+	}
+	fmt.Printf("PASS automatic routing route=%s reason=%s; decision persisted\n", automatic.Route, automatic.Routing.Reason)
 
 	if err := v.call("POST", "/v1/chat/completions", key.Raw, map[string]any{
 		"messages": []map[string]string{{"role": "user", "content": "quota test"}},

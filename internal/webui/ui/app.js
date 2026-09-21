@@ -14,7 +14,12 @@
     version: 0,
     controller: new AbortController(),
     routes: [],
+    auto: null,
+    classifier: "local",
     requests: [],
+    offset: 0,
+    historyVersion: 0,
+    lastRequestId: "",
   };
 
   const $ = (id) => document.getElementById(id);
@@ -76,6 +81,9 @@
       const code = payload?.error?.code;
       const error = new Error(code ? code.replaceAll("_", " ") : `Request failed with HTTP ${response.status}`);
       error.status = response.status;
+      error.requestId = response.headers?.get("X-Request-ID") || "";
+      const retry = response.headers?.get("Retry-After");
+      if (retry) error.message += ` · retry after ${retry}s`;
       error.invalidSession = response.status === 401 && options.token === state.key;
       throw error;
     }
@@ -118,7 +126,7 @@
   function clearSensitiveView() {
     clearCreatedKey();
     for (const id of ["apiKeyInput", "adminTokenInput", "revokeAdminInput", "systemInput", "promptInput"]) $(id).value = "";
-    for (const id of ["requestRows", "requestDetail", "routeFlow", "completionText", "completionStats", "completionProvider", "completionMeta", "welcomeLine"]) $(id).replaceChildren();
+    for (const id of ["requestRows", "requestDetail", "routeFlow", "completionText", "completionStats", "completionProvider", "completionMeta", "welcomeLine", "requestJSON", "pageCaption", "costCaption"]) $(id).replaceChildren();
     for (const id of ["requestMetric", "successMetric", "tokenMetric", "costMetric"]) $(id).textContent = "—";
     show($("completionPanel"), false);
     $("requestDialog").close();
@@ -151,6 +159,8 @@
     state.controller.abort();
     state.controller = new AbortController();
     state.key = ""; state.keyId = ""; state.routes = []; state.requests = [];
+    state.offset = 0; state.historyVersion++; state.lastRequestId = "";
+    show($("inspectLastButton"), false);
     clearSensitiveView();
     show(consoleView, false); show(accessView); show($("disconnectButton"), false);
     $("apiKeyInput").value = "";
@@ -191,24 +201,26 @@
   async function loadConsole() {
     const [routeData, requestData] = await Promise.all([
       api("/v1/routes", {token: state.key}),
-      api("/v1/requests?limit=100&offset=0", {token: state.key}),
+      api(`/v1/requests?limit=25&offset=${state.offset}`, {token: state.key}),
     ]);
     state.routes = routeData.routes || [];
+    state.auto = routeData.auto_routing;
+    state.classifier = routeData.classifier || "local";
     if (routeData.key?.id) {
       state.keyId = routeData.key.id;
     }
     state.requests = requestData.data || [];
-    renderRoutes(routeData.default_route);
-    renderRequests(); renderMetrics();
+    renderRoutes(routeData.default_route, state.auto ? "auto" : routeData.default_route);
+    renderRequests(); renderMetrics(); renderPagination();
     $("baseUrlLabel").textContent = `${location.origin}/v1/chat/completions`;
     const keyName = routeData.key?.name ? `${routeData.key.name} · ` : "";
     $("welcomeLine").textContent = `${keyName}${state.routes.length} route${state.routes.length === 1 ? "" : "s"} available · ${routeData.key?.requests_per_minute || "—"} requests/min`;
   }
 
-  function renderRoutes(defaultRoute) {
+  function renderRoutes(defaultRoute, preferredRoute = defaultRoute) {
     const select = $("routeSelect");
     const previous = select.value;
-    select.innerHTML = state.routes.map((route) => `<option value="${escapeHTML(route.name)}" ${route.name === defaultRoute ? "selected" : ""}>${escapeHTML(route.name)}${route.name === defaultRoute ? " · default" : ""}</option>`).join("");
+    select.innerHTML = state.routes.map((route) => `<option value="${escapeHTML(route.name)}" ${route.name === preferredRoute ? "selected" : ""}>${escapeHTML(route.name)}${route.name === defaultRoute ? " · API default" : ""}</option>`).join("");
     if (state.routes.some((route) => route.name === previous)) select.value = previous;
     renderRouteFlow();
   }
@@ -219,6 +231,11 @@
     const providerSelect = $("providerSelect");
     providerSelect.innerHTML = '<option value="">Route default</option>';
     if (!route) { $("routeFlow").innerHTML = ""; return; }
+    providerSelect.disabled = route.name === "auto";
+    if (route.name === "auto") {
+      $("routeFlow").innerHTML = `<p class="detail-context"><b>${state.classifier === "jev" ? "Jev classification" : "Local rule baseline"}</b><br>${state.classifier === "jev" ? "Prompts are sent to TypeSafe for classification. API credits may be consumed." : "Offline routing. No external classifier calls or charges."}</p>` + ["simple", "standard", "complex"].map((tier) => [tier, state.auto?.routes?.[tier]]).map(([tier, name]) => `<div class="route-target"><span class="route-index">↗</span><div><h3>${escapeHTML(tier)}</h3><p>${escapeHTML(name)}</p></div></div>`).join("") + `<p class="detail-context">Uncertain or unavailable → ${escapeHTML(state.auto?.fallback_route)}<br>Classifier deadline: ${number(state.auto?.timeout_ms)} ms</p>`;
+      return;
+    }
     for (const target of route.targets) {
       const option = document.createElement("option"); option.value = target.provider; option.textContent = target.provider; providerSelect.appendChild(option);
     }
@@ -229,11 +246,30 @@
       </div>`).join("");
   }
 
+  function routingSummary(routing) {
+    if (!routing) return "";
+    const c = routing.classification;
+    const confidence = c?.confidence == null ? "" : ` · ${Math.round(c.confidence * 100)}% confidence`;
+    const classified = c ? `${escapeHTML(c.source)} · ${escapeHTML(c.tier || "unavailable")}${confidence} · ${escapeHTML(duration(c.latency_ms || 0))}` : "Explicit selection";
+    return `<div class="routing-decision"><b>${classified} → ${escapeHTML(routing.route)}</b><span>${escapeHTML(routing.reason.replaceAll("_", " "))}${c ? ` · Classification estimate: ${escapeHTML(dollars(c.cost_nano_usd))}` : ""}</span></div>`;
+  }
+
+  function renderPagination() {
+    $("previousPage").disabled = state.offset === 0;
+    $("nextPage").disabled = state.requests.length < 25 || state.offset >= 100000;
+    $("pageCaption").textContent = state.requests.length
+      ? `Entries ${state.offset + 1}–${state.offset + state.requests.length} · newest first`
+      : "No entries on this page";
+  }
+
   function renderMetrics() {
     const requests = state.requests;
     const successes = requests.filter((request) => request.status === "success").length;
     const totalTokens = requests.reduce((sum, request) => sum + (request.usage?.total_tokens || 0), 0);
-    const totalCost = requests.reduce((sum, request) => sum + (request.cost_nano_usd || 0), 0);
+    const totalCost = requests.filter((r) => !r.usage?.simulated).reduce((sum, r) => sum + (r.cost_nano_usd || 0), 0);
+    const simulatedCost = requests.filter((r) => r.usage?.simulated).reduce((sum, r) => sum + (r.cost_nano_usd || 0), 0);
+    const classifierCost = requests.reduce((sum, r) => sum + (r.routing?.classification?.cost_nano_usd || 0), 0);
+    $("costCaption").textContent = `Classification: ${dollars(classifierCost)} additional · Simulated completions: ${dollars(simulatedCost)} excluded`;
     $("requestMetric").textContent = number(requests.length);
     $("successMetric").textContent = requests.length ? `${Math.round(successes / requests.length * 100)}%` : "—";
     $("successCaption").textContent = requests.length ? `${successes} of ${requests.length} completed` : "Awaiting traffic";
@@ -247,11 +283,11 @@
     rows.innerHTML = state.requests.map((request) => `
       <tr>
         <td><span class="request-id" title="${escapeHTML(request.id)}">${escapeHTML(shortID(request.id))}</span><span class="request-time">${escapeHTML(dateTime(request.created_at))}</span></td>
-        <td class="provider-cell"><b>${escapeHTML(request.provider || "pending")}</b><small>${escapeHTML(request.model || request.route)}</small></td>
-        <td><span class="table-status ${request.status === "error" ? "error" : ""}">${escapeHTML(request.status)}</span></td>
+        <td class="provider-cell"><b>${escapeHTML(request.provider || "pending")}</b><small>${escapeHTML(request.model || request.route)}</small><small>${escapeHTML(request.routing?.classification?.tier || request.routing?.mode || "explicit")}</small></td>
+        <td><span class="table-status ${request.status === "error" ? "error" : request.status === "pending" ? "pending" : ""}">${escapeHTML(request.status)}</span></td>
         <td>${number(request.usage?.total_tokens)}</td>
         <td>${escapeHTML(duration(request.latency_ms || 0))}</td>
-        <td>${escapeHTML(dollars(request.cost_nano_usd))}</td>
+        <td>${escapeHTML(dollars(request.cost_nano_usd))}<small class="usage-kind">${request.usage?.simulated ? "Simulated" : request.status === "success" ? "Provider estimate" : "Unknown usage"}</small></td>
         <td>${number(request.fallback_count)}</td>
         <td><button class="view-button" type="button" data-request-id="${escapeHTML(request.id)}">Inspect →</button></td>
       </tr>`).join("");
@@ -260,6 +296,8 @@
   async function sendChat(event) {
     event.preventDefault(); clearError(chatError);
     const button = $("sendButton"); setBusy(button, true, "Routing…");
+    show($("completionPanel"), false); show($("inspectLastButton"), false);
+    state.lastRequestId = "";
     const messages = [];
     const system = $("systemInput").value.trim();
     if (system) messages.push({role: "system", content: system});
@@ -268,31 +306,44 @@
     if ($("providerSelect").value) body.provider = $("providerSelect").value;
     try {
       const result = await api("/v1/chat/completions", {method: "POST", token: state.key, body: JSON.stringify(body)});
+      state.lastRequestId = result.id; show($("inspectLastButton"));
       $("completionProvider").textContent = `${result.provider} · ${result.model}`;
       $("completionMeta").textContent = shortID(result.id);
       $("completionText").textContent = result.choices?.[0]?.message?.content || "No text response";
       $("completionStats").innerHTML = `<span><b>${number(result.usage?.total_tokens)}</b> tokens</span><span><b>${duration(result.latency_ms)}</b> latency</span><span><b>${dollars(result.cost_nano_usd)}</b> estimated</span><span><b>${number(result.fallback_count)}</b> fallbacks</span><span>${result.usage?.simulated ? "Simulated usage" : "Provider usage"}</span>`;
+      $("completionStats").innerHTML += routingSummary(result.routing);
       show($("completionPanel"));
-      await refreshHistory();
+      await refreshHistory(0);
     } catch (error) {
       if (!endInvalidSession(error) && state.key) {
+        state.lastRequestId = error.requestId || "";
+        show($("inspectLastButton"), Boolean(state.lastRequestId));
         displayError(chatError, error);
-        await refreshHistory().catch(() => {});
+        await refreshHistory(0).catch(() => {});
       }
     }
     finally { setBusy(button, false); }
   }
 
-  async function refreshHistory() {
+  async function refreshHistory(offset = state.offset) {
     clearError(historyError);
-    const data = await api("/v1/requests?limit=100&offset=0", {token: state.key});
-    state.requests = data.data || []; renderRequests(); renderMetrics();
+    const version = ++state.historyVersion;
+    const data = await api(`/v1/requests?limit=25&offset=${offset}`, {token: state.key});
+    if (version !== state.historyVersion) return;
+    state.offset = offset;
+    state.requests = data.data || []; renderRequests(); renderMetrics(); renderPagination();
+  }
+
+  async function changePage(delta) {
+    try { await refreshHistory(Math.max(0, Math.min(100000, state.offset + delta))); }
+    catch (error) { if (!endInvalidSession(error)) displayError(historyError, error); }
   }
 
   async function inspectRequest(id) {
     try {
       const request = await api(`/v1/requests/${encodeURIComponent(id)}`, {token: state.key});
       $("dialogTitle").textContent = shortID(request.id);
+      $("requestJSON").textContent = JSON.stringify(request, null, 2);
       const attempts = request.attempts || [];
       $("requestDetail").innerHTML = `
         <div class="detail-grid">
@@ -301,11 +352,14 @@
           <div class="detail-stat"><span>Latency</span><b>${escapeHTML(duration(request.latency_ms || 0))}</b></div>
           <div class="detail-stat"><span>Est. cost</span><b>${escapeHTML(dollars(request.cost_nano_usd))}</b></div>
         </div>
+        <p class="detail-context">Route: <b>${escapeHTML(request.route)}</b> · ${request.usage?.simulated ? "Simulated completion usage; classification is accounted separately" : "Provider usage when available; failed attempts may have unknown cost"}</p>
+        <p class="detail-context">Request ID: <code>${escapeHTML(request.id)}</code></p>
+        ${routingSummary(request.routing)}
         <h3 class="attempt-title">Provider attempts · ${attempts.length}</h3>
         ${attempts.map((attempt) => `<div class="attempt">
           <span class="attempt-number">${attempt.number}</span>
           <div><b>${escapeHTML(attempt.provider)}</b><small>${escapeHTML(attempt.model)} · ${dateTime(attempt.started_at)}</small></div>
-          <div class="attempt-result"><span class="table-status ${attempt.status === "error" ? "error" : ""}">${escapeHTML(attempt.status)}</span><small>${escapeHTML(attempt.error_code || `${number(attempt.usage?.total_tokens)} tokens · ${duration(attempt.latency_ms || 0)}`)}</small></div>
+          <div class="attempt-result"><span class="table-status ${attempt.status === "error" ? "error" : ""}">${escapeHTML(attempt.status)}</span><small>${escapeHTML(attempt.error_code || `${number(attempt.usage?.input_tokens)} in / ${number(attempt.usage?.output_tokens)} out`)} · ${escapeHTML(duration(attempt.latency_ms || 0))}</small></div>
         </div>`).join("")}`;
       $("requestDialog").showModal();
     } catch (error) { if (!endInvalidSession(error)) toast(errorMessage(error)); }
@@ -349,6 +403,9 @@
   });
   $("routeSelect").addEventListener("change", renderRouteFlow);
   $("chatForm").addEventListener("submit", sendChat);
+  $("previousPage").addEventListener("click", () => changePage(-25));
+  $("nextPage").addEventListener("click", () => changePage(25));
+  $("inspectLastButton").addEventListener("click", () => { if (state.lastRequestId) return inspectRequest(state.lastRequestId); });
   $("requestRows").addEventListener("click", (event) => { const button = event.target.closest("[data-request-id]"); if (button) inspectRequest(button.dataset.requestId); });
   $("closeDialog").addEventListener("click", () => $("requestDialog").close());
   $("requestDialog").addEventListener("click", (event) => { if (event.target === $("requestDialog")) $("requestDialog").close(); });

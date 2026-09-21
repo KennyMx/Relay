@@ -50,6 +50,8 @@ func TestPostgresLedgerAndKeys(t *testing.T) {
 	}
 	defer pool.Exec(ctx, "DELETE FROM requests WHERE id=$1", r.ID)
 	defer pool.Exec(ctx, "DELETE FROM provider_attempts WHERE request_id=$1", r.ID)
+	r.Routing = &router.Decision{Mode: "auto", Route: "balanced", Reason: "classified"}
+	r.Route = "balanced"
 	r.Model = "mock-v1"
 	r.Provider = "mock"
 	r.Status = "success"
@@ -62,7 +64,7 @@ func TestPostgresLedgerAndKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	read, err := s.Get(ctx, k.ID, r.ID)
-	if err != nil || len(read.Attempts) != 2 || read.Usage != r.Usage || read.CostNanoUSD != 10000 || read.FallbackCount != 1 {
+	if err != nil || len(read.Attempts) != 2 || read.Usage != r.Usage || read.CostNanoUSD != 10000 || read.FallbackCount != 1 || read.Route != "balanced" || read.Routing == nil || read.Routing.Mode != "auto" {
 		t.Fatal(read, err)
 	}
 	if _, err = s.Get(ctx, "another-key", r.ID); !errors.Is(err, pgx.ErrNoRows) {
