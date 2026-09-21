@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/KennyMx/Relay/internal/classifier"
 	"github.com/KennyMx/Relay/internal/provider"
 )
 
@@ -29,6 +30,9 @@ type Attempt struct {
 	CostNanoUSD int64          `json:"cost_nano_usd"`
 }
 type Router struct {
+	Auto           *AutoPolicy
+	Classifier     classifier.Classifier
+	ClassifierMode string
 	Providers      map[string]provider.Provider
 	Routes         map[string]Route
 	Default        string

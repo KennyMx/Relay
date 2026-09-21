@@ -7,3 +7,9 @@ id = "relay-api-key"
 description = "Relay raw API credential"
 regex = '''rl_live_[a-fA-F0-9]{64}'''
 keywords = ["rl_live_"]
+
+[[rules]]
+id = "jev-api-key"
+description = "TypeSafe Jev API credential"
+regex = '''apikey_[a-fA-F0-9]{32}_[a-fA-F0-9]{64}'''
+keywords = ["apikey_"]
