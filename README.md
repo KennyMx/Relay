@@ -4,23 +4,23 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**A self-hosted LLM gateway that uses Jev to classify request complexity and select a model—with bounded fallback, shared quotas, and a durable usage ledger.**
+**A Go gateway for routing text-chat requests across OpenAI, Anthropic, Cohere, and a mock provider.** One `/v1/chat/completions` API selects a configured model route, retries provider failures, and records usage and estimated cost. The full self-hosted service adds Redis quotas, PostgreSQL request history, and hashed Relay API keys. Use local complexity classification by default or opt in to Jev.
 
-Send `model: "auto"` to classify a task as simple, standard, or complex and route it to a configured model. Or choose a route explicitly. OpenAI, Anthropic, Cohere, and mock providers share one text-chat API. Relay normalizes provider responses, enforces per-key request quotas in Redis, and records every provider attempt in PostgreSQL. Its embedded console lets operators send requests, inspect failures, and review token usage and estimated cost.
-
-**Go · PostgreSQL · Redis · Docker Compose** — one gateway binary, with plain HTML/CSS/JavaScript embedded in it.
-
-**[Open Relay](https://relay-three-iota.vercel.app) · [Try a request](https://relay-three-iota.vercel.app/workspace) · [Explore the architecture](https://relay-three-iota.vercel.app/architecture)**
-
-The public workspace runs Relay’s real Go router with a local classifier and clearly labeled simulated completions. Choose a task and inject a 429, 500, or timeout to follow automatic recovery. No signup or API key required. The full Docker gateway adds authenticated access, Redis quotas, PostgreSQL history, and optional real providers.
+**[Live site](https://relay-three-iota.vercel.app) · [Try a request](https://relay-three-iota.vercel.app/workspace) · [Explore the architecture](https://relay-three-iota.vercel.app/architecture)**
 
 ![Relay homepage](docs/screenshots/home.jpg)
+
+### Try the request path
+
+Open the [public workspace](https://relay-three-iota.vercel.app/workspace), choose **System design**, set **Primary returns 429**, and run the request. Relay classifies the task, shows the selected route, then records the failed primary attempt and successful fallback. The workspace runs the actual Go router with simulated completions and cost estimates, so it needs no signup or paid API keys. The full PostgreSQL and Redis gateway runs locally with Docker Compose.
+
+![Workspace showing a 429 and successful provider fallback](docs/screenshots/workspace.jpg)
 
 ## What you can verify
 
 | Capability | Implementation | Evidence |
 | --- | --- | --- |
-| Automatic model selection | Jev Choice classifier, confidence threshold, bounded deadline, offline baseline | [Classification tests](internal/classifier/jev_test.go) · [Routing tests](internal/router/automatic_test.go) |
+| Automatic model selection | Local classifier by default; optional Jev with a confidence threshold and bounded deadline | [Classification tests](internal/classifier/jev_test.go) · [Routing tests](internal/router/automatic_test.go) |
 | Provider independence | One Go interface; OpenAI, Anthropic, Cohere, mock adapters | [Adapter fixture tests](internal/provider/http_test.go) |
 | Partial-failure handling | Per-attempt deadlines, cancellation, bounded ordered fallback | [Router tests](internal/router/router_test.go) |
 | Shared quotas | Atomic Redis Lua token bucket using server time | [Concurrent Redis tests](internal/ratelimit/bucket_test.go) |
@@ -55,12 +55,9 @@ This exercises successful requests, 429/500/timeout fallback, durable attempt re
 
 ## Request workspace and operator console
 
-![Request workspace showing classification and provider fallback](docs/screenshots/workspace.jpg)
-
 `/workspace` is the public, credential-free request tool. It shows routing decisions, ordered attempts, latency, simulated usage and cost, and raw JSON. Its latest 20 requests stay only in browser memory; clearing the session also cancels in-flight work.
 
-`/console` operates your self-hosted gateway with a Relay API key.
-The console uses the actual gateway API and stored request data. Create a key, choose a route, send a completion, then inspect the ordered attempts and raw ledger JSON. History is paginated; summary cards describe the current page. Provider cost estimates and simulated costs are shown separately.
+`/console` operates your self-hosted gateway with a Relay API key. The console uses the actual gateway API and stored request data. Create a key, choose a route, send a completion, then inspect the ordered attempts and raw ledger JSON. History is paginated; summary cards describe the current page. Provider cost estimates and simulated costs are shown separately.
 
 ## Jev routing, measured
 
@@ -94,8 +91,6 @@ flowchart LR
 ```
 
 The gateway validates access and claims one quota token before attempting upstream work. PostgreSQL and Redis are shared state; gateway instances do not keep a private quota counter. If either dependency is unavailable, Relay prevents upstream work. A separate finalization deadline lets the gateway record attempts even after a client disconnects.
-
-![Relay architecture guide](docs/screenshots/architecture.jpg)
 
 Read [the design decisions and failure boundaries](docs/design.md) for tradeoffs, including why retries cannot guarantee exactly-once provider billing.
 
