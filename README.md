@@ -53,6 +53,23 @@ This exercises successful requests, 429/500/timeout fallback, durable attempt re
 
 `docker compose down` stops services and retains data. Set `RELAY_PORT` in `.env` if port 8080 is occupied.
 
+## Use your own provider
+
+The default setup is free and uses mock completions. For actual text-chat requests, edit your private `.env` and set `RELAY_MODE=real`. Choose one provider (`openai`, `anthropic`, or `cohere`), a model ID available to your account, and that model's current input/output prices in **USD per million tokens**:
+
+```dotenv
+RELAY_MODE=real
+RELAY_PRIMARY_PROVIDER=openai
+RELAY_PRIMARY_MODEL=<your-model-id>
+RELAY_PRIMARY_INPUT_USD_PER_M=<current-input-price>
+RELAY_PRIMARY_OUTPUT_USD_PER_M=<current-output-price>
+OPENAI_API_KEY=<your-private-key>
+```
+
+Optionally set `RELAY_FALLBACK_PROVIDER`, `RELAY_FALLBACK_MODEL`, `RELAY_FALLBACK_INPUT_USD_PER_M`, `RELAY_FALLBACK_OUTPUT_USD_PER_M`, and that second provider's API key. The providers must differ. Recreate with `docker compose up --build -d --wait`, then send the [same request](#use-the-api) using `model: "chat"` or omit `model`. The gateway tries the fallback once for retryable failures and records both attempts. Your own provider account may incur charges. Verify current model IDs and prices with [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), or [Cohere](https://docs.cohere.com/docs/how-does-cohere-pricing-work). Relay's estimates use the prices you enter; they are not provider invoices.
+
+This small setup gives you one stable API, per-key quotas, usage history, and fallback for real calls. The advanced [JSON configuration](config/real.example.json) still supports multiple routes and automatic complexity routing. The public workspace stays simulated and never receives your provider keys. See [operations](docs/operations.md#real-provider-configuration-optional) for details.
+
 ## Request workspace and operator console
 
 `/workspace` is the public, credential-free request tool. It shows routing decisions, ordered attempts, latency, simulated usage and cost, and raw JSON. Its latest 20 requests stay only in browser memory; clearing the session also cancels in-flight work.
@@ -109,7 +126,7 @@ For a fallback example, change `model` to `fallback-rate-limit`: the configured 
 
 [API contract (OpenAPI)](docs/openapi.json) · [API examples and operations](docs/operations.md) · [Routing configuration](config/relay.json) · [Real-provider template](config/real.example.json)
 
-Real completion providers are optional and require your own credentials and current model pricing. The Jev adapter has also been verified against the live official API with the recorded synthetic corpus. Their adapters are tested against local HTTP fixtures; **no paid provider calls are required for development or testing**.
+Real completion providers are optional and require your own credentials and current model pricing. The Jev adapter has also been verified against the live official API with the recorded synthetic corpus. Completion adapters are tested against local HTTP fixtures; **no paid provider calls are required for development or testing**.
 
 ## Test
 

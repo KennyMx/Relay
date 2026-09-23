@@ -74,7 +74,7 @@ The API intentionally supports **non-streaming text only**: `system`, `user`, an
 
 ## Routing and fallback
 
-Use `model: "auto"` for [Jev complexity routing](automatic-routing.md). The console shows the decision, confidence, timing, and separate classifier estimate. Explicit routes bypass classification.
+In the default file-based mock setup, use `model: "auto"` for [complexity routing](automatic-routing.md). The console shows the decision, confidence, timing, and separate classifier estimate. Explicit routes bypass classification. The simple real-provider mode has one `chat` route and no automatic classification.
 
 Edit [config/relay.json](../config/relay.json), then restart the gateway. `model` names a **route alias**, whose ordered targets map to concrete provider models. Omitting it selects `default_route`; the route's first target is the default provider.
 
@@ -96,9 +96,11 @@ For a real route, the same client request can follow OpenAI 429 → Anthropic su
 
 Real calls may incur provider charges. The completion adapters use local HTTP fixtures in tests; no paid completion calls are required. Jev classification has a separate, explicitly opted-in live evaluation.
 
-1. Generate `.env` using the quick-start command, then set the desired provider API keys. Keep `.env` untracked. `.env.example` documents the settings but intentionally contains no usable credentials.
-2. Use [config/real.example.json](../config/real.example.json) as a template for `config/relay.json`. Replace **all model placeholders and illustrative prices** with models available to your account and their current rates. Remove unused providers/targets and their prices.
-3. Recreate the gateway with `docker compose up --build -d --wait` so environment changes take effect.
+1. Generate `.env` using the quick-start command. Set `RELAY_MODE=real`, `RELAY_PRIMARY_PROVIDER` (`openai`, `anthropic`, or `cohere`), `RELAY_PRIMARY_MODEL`, and its `RELAY_PRIMARY_INPUT_USD_PER_M` and `RELAY_PRIMARY_OUTPUT_USD_PER_M` prices. Use current prices in USD per million tokens, not nano-USD per token. Set that provider's `*_API_KEY`. Keep `.env` untracked.
+2. For fallback, also set the four matching `RELAY_FALLBACK_*` fields and a key for a **different** provider. Leave all fallback fields empty for a single-provider gateway. Real mode creates the `chat` route and tries each configured provider at most once. Requests can omit `model` or use `"model":"chat"`; `"model":"auto"` is unavailable in this mode.
+3. Leave `RELAY_CLASSIFIER=local` and recreate the gateway with `docker compose up --build -d --wait` so environment changes take effect. Use the console or the same `/v1/chat/completions` request format as the mock setup. The public Vercel workspace remains simulated and does not accept provider keys.
+
+For several named routes or automatic classification with real providers, keep `RELAY_MODE=file` and adapt [config/real.example.json](../config/real.example.json) into `config/relay.json`. Replace **all** model placeholders and illustrative prices with models available to your account and their current rates; remove unused targets. File mode prices are integer nano-USD per token. [Current provider pricing](https://developers.openai.com/api/docs/pricing) must be checked by the operator; the ledger estimates are not invoices.
 
 | Adapter | Environment variable | Wire API and usage |
 | --- | --- | --- |
@@ -158,9 +160,8 @@ make verify     # Against the running Compose gateway
 make security   # Go vulnerability scan, UI regressions (Node), and Git secret scan
 ```
 
-To run the gateway outside Docker, generate credentials with `go run ./cmd/relay init`, load the environment, and provide reachable `DATABASE_URL` and `REDIS_URL`, then `go run ./cmd/relay`. Compose does not publish database/cache ports. `RELAY_CONFIG` defaults to `config/relay.json`, and `RELAY_ADDR` to `:8080`. For integration tests against your own services, set `RELAY_INTEGRATION=1` along with those database/cache URLs and run `go test -race ./...`.
+To run the gateway outside Docker, generate credentials with `go run ./cmd/relay init`, load the environment, and provide reachable `DATABASE_URL` and `REDIS_URL`, then `go run ./cmd/relay`. Compose does not publish database/cache ports. `RELAY_MODE` defaults to `file`; in that mode `RELAY_CONFIG` defaults to `config/relay.json`. `RELAY_ADDR` defaults to `:8080`. For integration tests against your own services, set `RELAY_INTEGRATION=1` along with those database/cache URLs and run `go test -race ./...`.
 
 The HTTP port binds to loopback. Only `localhost`, `127.0.0.1`, and `::1` Host headers are accepted by default, and cross-origin browser requests are rejected. For your own domain, set `RELAY_ALLOWED_HOSTS` to a comma-separated list of exact hostnames (no scheme or port), including loopback hosts for health checks, and use a TLS reverse proxy that preserves the Host header. Node is used only for UI security tests; it is not a service runtime.
 
 See [SECURITY.md](../SECURITY.md) for the security boundary, credential rotation, and reporting guidance. Existing installations upgrading from shared local passwords must rotate them as described there; changing `.env` alone does not change the password in an existing PostgreSQL volume.
-

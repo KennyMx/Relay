@@ -62,7 +62,16 @@ func run() error {
 	if err := config.ValidateAdminToken(admin); err != nil {
 		return err
 	}
-	cfg, err := config.Load(env("RELAY_CONFIG", "config/relay.json"))
+	var cfg config.Config
+	var err error
+	switch env("RELAY_MODE", "file") {
+	case "file":
+		cfg, err = config.Load(env("RELAY_CONFIG", "config/relay.json"))
+	case "real":
+		cfg, err = config.RealFromEnv()
+	default:
+		return fmt.Errorf("RELAY_MODE must be file or real")
+	}
 	if err != nil {
 		return err
 	}

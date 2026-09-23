@@ -33,7 +33,7 @@ func InitEnv(path string) error {
 	if err != nil {
 		return fmt.Errorf("cannot create credentials file (existing files are never overwritten): %w", err)
 	}
-	_, writeErr := fmt.Fprintf(f, "RELAY_ADMIN_TOKEN=%s\nPOSTGRES_PASSWORD=%s\nRELAY_PORT=8080\nRELAY_ALLOWED_HOSTS=localhost,127.0.0.1,::1\nOPENAI_API_KEY=\nANTHROPIC_API_KEY=\nCOHERE_API_KEY=\nRELAY_CLASSIFIER=local\nJEV_API_KEY=\n", admin, database)
+	_, writeErr := fmt.Fprintf(f, "RELAY_ADMIN_TOKEN=%s\nPOSTGRES_PASSWORD=%s\nRELAY_PORT=8080\nRELAY_ALLOWED_HOSTS=localhost,127.0.0.1,::1\nRELAY_MODE=file\nRELAY_PRIMARY_PROVIDER=\nRELAY_PRIMARY_MODEL=\nRELAY_PRIMARY_INPUT_USD_PER_M=\nRELAY_PRIMARY_OUTPUT_USD_PER_M=\nRELAY_FALLBACK_PROVIDER=\nRELAY_FALLBACK_MODEL=\nRELAY_FALLBACK_INPUT_USD_PER_M=\nRELAY_FALLBACK_OUTPUT_USD_PER_M=\nOPENAI_API_KEY=\nANTHROPIC_API_KEY=\nCOHERE_API_KEY=\nRELAY_CLASSIFIER=local\nJEV_API_KEY=\n", admin, database)
 	closeErr := f.Close()
 	if writeErr != nil {
 		return writeErr

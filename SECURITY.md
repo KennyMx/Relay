@@ -1,6 +1,6 @@
 # Security
 
-Relay is a self-hosted gateway for a trusted operator and the people to whom that operator issues keys. The public repository contains code and examples, not a hosted service. No security review or scanner can guarantee the absence of vulnerabilities.
+Relay's full gateway is self-hosted for a trusted operator and the people to whom that operator issues keys. The public site has a separate, stateless workspace with simulated completions; it has no provider credentials, PostgreSQL, or Redis access. No security review or scanner can guarantee the absence of vulnerabilities.
 
 ## Defaults and controls
 
