@@ -1,6 +1,6 @@
 {
   "name": "relay",
-  "version": "0.3.0",
+  "version": "0.3.0+codex.20260924232756",
   "description": "Route bounded Codex subtasks to a selected model and inspect actual CLI-reported usage.",
   "author": {
     "name": "Kenny Mustapha"
@@ -13,7 +13,9 @@
     "longDescription": "Launch a bounded, read-only Codex subtask on the selected model using your existing login. Inspect Codex-reported tokens and the local run history.",
     "developerName": "Kenny Mustapha",
     "category": "Productivity",
-    "capabilities": ["Read"],
+    "capabilities": [
+      "Read"
+    ],
     "websiteURL": "https://github.com/KennyMx/Relay",
     "defaultPrompt": "Use Relay to route this bounded question to a cheaper Codex model and show the usage receipt."
   }

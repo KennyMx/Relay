@@ -2,9 +2,16 @@
   "mcpServers": {
     "relay": {
       "type": "stdio",
-      "command": "relay-agent",
-      "args": ["mcp"],
-      "env_vars": ["RELAY_KEY", "RELAY_GATEWAY_URL"]
+      "command": "sh",
+      "args": [
+        "-c",
+        "if [ -n \"${RELAY_AGENT_BIN:-}\" ]; then exec \"$RELAY_AGENT_BIN\" mcp; elif command -v relay-agent >/dev/null 2>&1; then exec relay-agent mcp; elif [ -x \"$HOME/go/bin/relay-agent\" ]; then exec \"$HOME/go/bin/relay-agent\" mcp; else echo \"Relay executable not found: run go install ./cmd/relay-agent; for a custom install set RELAY_AGENT_BIN to its absolute path.\" >&2; exit 127; fi"
+      ],
+      "env_vars": [
+        "RELAY_KEY",
+        "RELAY_GATEWAY_URL",
+        "RELAY_AGENT_BIN"
+      ]
     }
   }
 }

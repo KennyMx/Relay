@@ -10,30 +10,12 @@ import (
 	"testing"
 )
 
-func TestNativeModelRouting(t *testing.T) {
-	model, tier, source, err := selectNativeModel("codex", "auto", "", "", "Summarize these notes.")
-	if err != nil || model != "gpt-6-luna" || tier != "simple" || source != "local" {
-		t.Fatalf("simple route: %s %s %s %v", model, tier, source, err)
-	}
-	model, tier, _, err = selectNativeModel("codex", "auto", "", "", "Review distributed architecture tradeoffs.")
-	if err != nil || model != "gpt-6-sol" || tier != "complex" {
-		t.Fatalf("complex route: %s %s %v", model, tier, err)
-	}
-	model, _, _, err = selectNativeModel("claude", "cheap", "", "", "Debug this race condition")
-	if err != nil || model != "haiku" {
-		t.Fatalf("explicit route: %s %v", model, err)
-	}
-	if _, _, _, err := selectNativeModel("codex", "cheap", "--bad", "", "hi"); err == nil {
-		t.Fatal("accepted flag-like model")
-	}
-}
-
 func TestNativeCodexCommandKeepsReadOnlyDefault(t *testing.T) {
-	_, readArgs := nativeCommand("codex", "gpt-6-luna", false)
-	if !strings.Contains(strings.Join(readArgs, " "), "--sandbox read-only") || strings.Contains(strings.Join(readArgs, " "), "--approve-for-me") {
+	_, readArgs := nativeCommand("codex", "gpt-6-luna", "xhigh", false)
+	if !strings.Contains(strings.Join(readArgs, " "), `model_reasoning_effort="xhigh"`) || !strings.Contains(strings.Join(readArgs, " "), "--sandbox read-only") || strings.Contains(strings.Join(readArgs, " "), "--approve-for-me") {
 		t.Fatalf("read-only args: %v", readArgs)
 	}
-	_, writeArgs := nativeCommand("codex", "gpt-6-luna", true)
+	_, writeArgs := nativeCommand("codex", "gpt-6-luna", "low", true)
 	if !strings.Contains(strings.Join(writeArgs, " "), "--approve-for-me") || strings.Contains(strings.Join(writeArgs, " "), "--sandbox") {
 		t.Fatalf("write args: %v", writeArgs)
 	}

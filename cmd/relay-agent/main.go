@@ -42,7 +42,7 @@ type completion struct {
 }
 
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "run" || os.Args[1] == "runs" || os.Args[1] == "serve") {
+	if len(os.Args) > 1 && (os.Args[1] == "models" || os.Args[1] == "run" || os.Args[1] == "runs" || os.Args[1] == "serve") {
 		if err := runNativeCLI(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 			fmt.Fprintln(os.Stderr, "relay-agent:", err)
 			os.Exit(1)

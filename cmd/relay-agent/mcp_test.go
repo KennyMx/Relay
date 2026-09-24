@@ -72,7 +72,7 @@ func TestMCPRejectsMissingKey(t *testing.T) {
 func TestMCPRoutesRealCodexProtocolWithFakeExecutable(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	script := "#!/bin/sh\ncat >/dev/null\nprintf '%s\\n' '{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"Real CLI path\"}}' '{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":10,\"output_tokens\":2}}'\n"
+	script := "#!/bin/sh\nif [ \"$1\" = app-server ]; then\n read -r line\n echo '{\"id\":1,\"result\":{}}'\n read -r line\n read -r line\n echo '{\"id\":2,\"result\":{\"data\":[{\"model\":\"gpt-6-luna\",\"defaultReasoningEffort\":\"low\",\"supportedReasoningEfforts\":[{\"reasoningEffort\":\"low\"}]}],\"nextCursor\":null}}'\n cat >/dev/null\n exit\nfi\ncat >/dev/null\nprintf '%s\\n' '{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"Real CLI path\"}}' '{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":10,\"output_tokens\":2}}'\n"
 	if err := os.WriteFile(filepath.Join(dir, "codex"), []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestMCPRoutesRealCodexProtocolWithFakeExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer session.Close()
-	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "route_codex_task", Arguments: map[string]any{"task": "Find the package"}})
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "route_codex_task", Arguments: map[string]any{"task": "Find the package", "model": "gpt-6-luna", "effort": "light"}})
 	if err != nil || result.IsError {
 		t.Fatalf("tool call: %v %+v", err, result)
 	}
@@ -102,7 +102,7 @@ func TestMCPRoutesRealCodexProtocolWithFakeExecutable(t *testing.T) {
 	if err := json.Unmarshal(data, &out); err != nil {
 		t.Fatal(err)
 	}
-	if out.Answer != "Real CLI path" || out.Run.RequestedModel != "gpt-6-luna" || out.Run.InputTokens != 10 {
+	if out.Answer != "Real CLI path" || out.Run.RequestedModel != "gpt-6-luna" || out.Run.InputTokens != 10 || out.Run.ReasoningEffort != "low" {
 		t.Fatalf("result: %+v", out)
 	}
 	logData, err := os.ReadFile(filepath.Join(dir, ".relay", "runs.jsonl"))

@@ -30,8 +30,10 @@ type delegateOutput struct {
 }
 
 type codexTaskInput struct {
+	Model       string `json:"model,omitempty" jsonschema:"Explicit model from list_codex_models; overrides automatic model selection."`
+	Effort      string `json:"effort,omitempty" jsonschema:"auto or a reasoning level supported by the selected model (for example low, medium, high, xhigh)."`
 	Task        string `json:"task" jsonschema:"A bounded coding task for a fresh, read-only Codex run. Do not include secrets."`
-	Mode        string `json:"mode,omitempty" jsonschema:"Model route: auto, cheap, or strong. Defaults to cheap."`
+	Mode        string `json:"mode,omitempty" jsonschema:"Model route: auto, cheap, or strong. Defaults to auto."`
 	CheapModel  string `json:"cheap_model,omitempty" jsonschema:"Optional Codex model ID for cheap tasks."`
 	StrongModel string `json:"strong_model,omitempty" jsonschema:"Optional Codex model ID for complex tasks."`
 }
@@ -42,7 +44,12 @@ type codexTaskOutput struct {
 }
 
 func newMCPServer(client httpDoer) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: "relay", Version: "0.2.0"}, nil)
+	server := mcp.NewServer(&mcp.Implementation{Name: "relay", Version: "0.4.0"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_codex_models", Description: "Read the available Codex models and supported reasoning efforts from this account's CLI catalog. Does not start a model run."}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, struct {
+		Models []codexModel `json:"models"`
+	}, error) { models, err := discoverCodexModels(ctx); return nil, struct {
+		Models []codexModel `json:"models"`
+	}{Models: models}, err })
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "route_codex_task",
 		Description: "Launch one opt-in read-only Codex CLI subtask on a selected model using the user's existing Codex login. Returns its real answer and host-reported token usage. Does not change the current session model or make a provider API call directly. Use only when the user asks to route a bounded task through Relay.",
@@ -55,11 +62,11 @@ func newMCPServer(client httpDoer) *mcp.Server {
 			return nil, out, errors.New("task exceeds MCP limit of 8 KiB")
 		}
 		if in.Mode == "" {
-			in.Mode = "cheap"
+			in.Mode = "auto"
 		}
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 		defer cancel()
-		answer, record, err := runNativeTask(ctx, nativeTaskOptions{Host: "codex", Mode: in.Mode, CheapModel: in.CheapModel, StrongModel: in.StrongModel, Prompt: in.Task, LogPath: ".relay/runs.jsonl"}, io.Discard)
+		answer, record, err := runNativeTask(ctx, nativeTaskOptions{Host: "codex", Mode: in.Mode, Model: in.Model, Effort: in.Effort, CheapModel: in.CheapModel, StrongModel: in.StrongModel, Prompt: in.Task, LogPath: ".relay/runs.jsonl"}, io.Discard)
 		if err != nil {
 			return nil, out, err
 		}

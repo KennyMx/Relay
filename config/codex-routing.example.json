@@ -1,0 +1,5 @@
+{
+  "simple": {"model": "gpt-5.6-luna", "effort": "low"},
+  "standard": {"model": "gpt-5.6-terra", "effort": "medium"},
+  "complex": {"model": "gpt-6-astra", "effort": "xhigh"}
+}
