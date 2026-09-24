@@ -1,0 +1,19 @@
+{
+  "name": "relay",
+  "version": "0.1.0",
+  "description": "Delegate small coding tasks to a cheaper model through a self-hosted Relay gateway.",
+  "author": {
+    "name": "Kenny Mustapha"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Relay",
+    "shortDescription": "Delegate bounded tasks to a cheaper model.",
+    "longDescription": "Use your own Relay gateway and API key to send self-contained tasks to a configured lower-cost route. Inspect usage and estimated cost in the response and ledger.",
+    "developerName": "Kenny Mustapha",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/KennyMx/Relay",
+    "defaultPrompt": "Use Relay to answer this small standalone question with my cheap route."
+  }
+}

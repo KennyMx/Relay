@@ -9,6 +9,7 @@ Relay's full gateway is self-hosted for a trusted operator and the people to who
 - Browser credentials live only in memory. Reload/disconnect requires reconnection. Disconnect clears credential fields, response content, and pending key values, and invalidates in-flight authenticated responses. The browser refuses API redirects.
 - The gateway rejects unapproved Host headers and cross-origin browser calls, including cross-site Fetch Metadata. This protects the loopback console against DNS rebinding. These checks do not replace bearer authentication.
 - Prompt/response text is not persisted in the ledger. Upstream error bodies are not returned or logged. Provider URLs are fixed, HTTPS-only, and do not follow redirects. SQL uses bound parameters.
+- The optional coding-agent plugin delegates only when invoked. Its CLI reads a Relay key from the environment, caps task size and requested output, requires HTTPS for remote gateways, and refuses redirects. A delegated task is sent to the configured provider; do not include secrets or private repository content in it.
 - Request bodies, provider responses, timeouts, fallback attempts, active gateway work (64 requests), and per-key quotas are bounded. Quotas count requests, not spend.
 - Compose exposes only the gateway on loopback. Its container runs without root, a shell, Linux capabilities, or a writable root filesystem. PostgreSQL/Redis use persistent volumes on the internal Compose network.
 

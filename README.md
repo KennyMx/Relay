@@ -4,9 +4,11 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**A Go gateway for routing text-chat requests across OpenAI, Anthropic, Cohere, and a mock provider.** One `/v1/chat/completions` API selects a configured model route, retries provider failures, and records usage and estimated cost. The full self-hosted service adds Redis quotas, PostgreSQL request history, and hashed Relay API keys. Use local complexity classification by default or opt in to Jev.
+**A Go gateway for routing text-chat requests across OpenAI, Anthropic, Cohere, and a mock provider.** One `/v1/chat/completions` API selects a configured model route, retries provider failures, and records usage and estimated cost. The full self-hosted service adds Redis quotas, PostgreSQL request history, and hashed Relay API keys. An optional Codex / Claude Code plugin delegates small tasks to a configured lower-cost route.
 
 **[Live site](https://relay-three-iota.vercel.app) · [Try a request](https://relay-three-iota.vercel.app/workspace) · [Explore the architecture](https://relay-three-iota.vercel.app/architecture)**
+
+**[Coding-agent plugin setup](docs/agent-plugin.md)** · [Plugin source](plugins/relay) · [CLI tests](cmd/relay-agent/main_test.go)
 
 ![Relay homepage](docs/screenshots/home.jpg)
 
@@ -69,6 +71,12 @@ OPENAI_API_KEY=<your-private-key>
 Optionally set `RELAY_FALLBACK_PROVIDER`, `RELAY_FALLBACK_MODEL`, `RELAY_FALLBACK_INPUT_USD_PER_M`, `RELAY_FALLBACK_OUTPUT_USD_PER_M`, and that second provider's API key. The providers must differ. Recreate with `docker compose up --build -d --wait`, then send the [same request](#use-the-api) using `model: "chat"` or omit `model`. The gateway tries the fallback once for retryable failures and records both attempts. Your own provider account may incur charges. Verify current model IDs and prices with [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), or [Cohere](https://docs.cohere.com/docs/how-does-cohere-pricing-work). Relay's estimates use the prices you enter; they are not provider invoices.
 
 This small setup gives you one stable API, per-key quotas, usage history, and fallback for real calls. The advanced [JSON configuration](config/real.example.json) still supports multiple routes and automatic complexity routing. The public workspace stays simulated and never receives your provider keys. See [operations](docs/operations.md#real-provider-configuration-optional) for details.
+
+## Use Relay from Codex or Claude Code
+
+The [Relay plugin](plugins/relay) offers an opt-in `cheap-task` skill. It sends a small, self-contained text task to your self-hosted gateway's `chat` route and returns the answer with a request ID, token counts, and estimated cost. Configure that route with a lower-cost model and keep expensive models out of its fallback order. The host agent handles edits, tool calls, and final checks. Relay does **not** silently switch Codex's or Claude Code's main model, and a cheaper model can still use the same or more tokens.
+
+The companion `relay-agent` CLI reads the Relay key from `RELAY_KEY`, limits each task to 8 KiB and the output request to 512 tokens, and never calls a provider during `check`. Install it with `go install ./cmd/relay-agent`, then follow the [plugin setup and usage guide](docs/agent-plugin.md). The default mock gateway lets you try the complete workflow for $0; real delegation uses your provider account and may incur charges. Relay's ledger measures delegated calls, but no end-to-end cost-saving claim is made without comparing real sessions.
 
 ## Request workspace and operator console
 
