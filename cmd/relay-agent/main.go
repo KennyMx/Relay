@@ -42,6 +42,13 @@ type completion struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "run" || os.Args[1] == "runs" || os.Args[1] == "serve") {
+		if err := runNativeCLI(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+			fmt.Fprintln(os.Stderr, "relay-agent:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	client := &http.Client{
 		Timeout:       40 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
@@ -77,7 +84,9 @@ func run(args []string, input io.Reader, output io.Writer, client httpDoer) erro
 		}
 		return check(base, key, output, client)
 	}
-	if args[0] == "report" { return report(args[1:], base, key, output, client) }
+	if args[0] == "report" {
+		return report(args[1:], base, key, output, client)
+	}
 	fs := flag.NewFlagSet("ask", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	route := fs.String("route", "chat", "configured Relay route")

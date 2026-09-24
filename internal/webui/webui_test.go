@@ -15,10 +15,12 @@ func TestEmbeddedConsole(t *testing.T) {
 		contentType string
 		contains    string
 	}{
-		{"/", "text/html", "The right route."},
+		{"/", "text/html", "Route coding work."},
 		{"/console", "text/html", "Relay Console"},
 		{"/workspace", "text/html", "Request workspace"},
-		{"/architecture", "text/html", "Inside the gateway."},
+		{"/architecture", "text/html", "Native Codex."},
+		{"/assets/product.css", "text/css", "#0a0e17"},
+		{"/assets/native-runs.png", "image/png", ""},
 		{"/assets/favicon.svg", "image/svg+xml", "<svg"},
 		{"/assets/workspace.js", "text/javascript", "/v1/try"},
 		{"/assets/styles.css", "text/css", "--accent"},
@@ -39,6 +41,14 @@ func TestEmbeddedConsole(t *testing.T) {
 				t.Fatalf("missing %q", test.contains)
 			}
 		})
+	}
+}
+
+func TestPublicSiteHasNoMockWorkspaceOrOperatorConsole(t *testing.T) {
+	for _, path := range []string{"/workspace", "/console", "/v1/try", "/assets/workspace.js"} {
+		r := httptest.NewRecorder()
+		PublicHandler().ServeHTTP(r, httptest.NewRequest(http.MethodGet, path, nil))
+		if r.Code != http.StatusNotFound { t.Fatalf("%s: expected 404, got %d", path, r.Code) }
 	}
 }
 

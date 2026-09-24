@@ -22,6 +22,10 @@ func Handler() http.Handler {
 	mux.HandleFunc("GET /assets/{name}", func(w http.ResponseWriter, r *http.Request) {
 		var asset string
 		switch r.PathValue("name") {
+		case "product.css":
+			asset = "product.css"
+		case "native-runs.png":
+			asset = "native-runs.png"
 		case "site.css":
 			asset = "site.css"
 		case "site.js":
@@ -63,6 +67,9 @@ func Handler() http.Handler {
 }
 
 func mimeType(name string) string {
+	if filepath.Ext(name) == ".png" {
+		return "image/png"
+	}
 	if filepath.Ext(name) == ".svg" {
 		return "image/svg+xml"
 	}
@@ -70,4 +77,18 @@ func mimeType(name string) string {
 		return "text/css; charset=utf-8"
 	}
 	return "text/javascript; charset=utf-8"
+}
+
+// PublicHandler serves only product documentation; the operator console and
+// mock testing workspace remain local to the full gateway.
+func PublicHandler() http.Handler {
+	full := Handler()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/", "/architecture", "/assets/product.css", "/assets/native-runs.png", "/assets/favicon.svg":
+			full.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
 }

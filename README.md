@@ -1,185 +1,102 @@
 # Relay
 
-[![verify](https://github.com/KennyMx/Relay/actions/workflows/ci.yml/badge.svg)](https://github.com/KennyMx/Relay/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](go.mod)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![verify](https://github.com/KennyMx/Relay/actions/workflows/ci.yml/badge.svg)](https://github.com/KennyMx/Relay/actions/workflows/ci.yml) [![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](go.mod) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Route bounded coding-agent tasks to a model you choose, then inspect the cost of each call.** Relay is an opt-in MCP plugin for Codex and Claude Code backed by a self-hosted Go gateway. The agent can delegate a small text task to a configured lower-cost route; Relay returns the answer, provider, token usage, estimated cost, and request ID. PostgreSQL records every attempt, Redis enforces per-key quotas, and the same gateway also serves a normalized `/v1/chat/completions` API for OpenAI, Anthropic, Cohere, and a free mock provider.
+**Route a real Codex CLI task to a selected model and see the usage Codex actually reports.** Relay is a small Go launcher that starts a native Codex run, captures its structured token counts, and keeps a local run history. It uses your existing Codex login; the primary workflow needs no provider API key, Docker stack, or simulated completion.
 
-Relay does **not** change Codex's or Claude Code's main model. Its value is selective delegation and transparent accounting. Routing to a cheaper model may lower spend on those calls, but it does not guarantee fewer tokens or lower total session cost.
+[Product site](https://relay-three-iota.vercel.app) · [Architecture](https://relay-three-iota.vercel.app/architecture) · [Source](https://github.com/KennyMx/Relay)
 
-**[Live site](https://relay-three-iota.vercel.app) · [Try a request](https://relay-three-iota.vercel.app/workspace) · [Explore the architecture](https://relay-three-iota.vercel.app/architecture)**
+![Relay local run history with two actual Codex CLI runs](docs/screenshots/native-runs.png)
 
-**[Install the coding-agent plugin](docs/agent-plugin.md)** · [MCP server and tests](cmd/relay-agent) · [Plugin source](plugins/relay)
-
-## Use it as a developer tool
-
-1. [Start the local stack](#quick-start) and create a Relay key in the operator console. The default `chat` route uses the mock provider, so setup and testing cost $0.
-2. `go install ./cmd/relay-agent`, export `RELAY_KEY` privately, and run `relay-agent check`. Load the [Codex or Claude Code plugin](docs/agent-plugin.md); it starts the `relay-agent mcp` server automatically.
-3. Ask the agent to use `relay:cheap-task` for a small standalone task. The `relay.delegate_task` MCP tool sends only that task through Relay and returns a per-call receipt. For real answers, [configure your own lower-cost model](#use-your-own-provider) on the route.
-4. Run `relay-agent report --reference-input 5 --reference-output 10` with **your chosen reference model's prices** to compare the same observed tokens at two prices. Real and simulated calls are reported separately.
-
-The mock-path receipt from a local end-to-end run:
-
-```text
-Relay: mock/mock-fast, route=fast, input=12, output=4,
-estimated=$0.00000200, simulated=true
-```
-
-The [reporting method and sample output](docs/agent-plugin.md#inspect-modeled-cost-difference) explain what that comparison can and cannot establish. The local mock result is a verification of accounting, not a claim of real savings. Jev classification is optional; a fixed cheap route is preferable for obvious small tasks because classification itself has cost and latency.
-
-![Rendered relay-agent report from a local mock request, with real and simulated totals separated](docs/screenshots/plugin-report.svg)
-
-The image renders actual CLI output from one local mock request. Its reference rates are illustrative operator inputs; no real-provider savings were measured.
-
-![Relay homepage](docs/screenshots/home.jpg)
-
-### Try the request path
-
-Open the [public workspace](https://relay-three-iota.vercel.app/workspace), choose **System design**, set **Primary returns 429**, and run the request. Relay classifies the task, shows the selected route, then records the failed primary attempt and successful fallback. The workspace runs the actual Go router with simulated completions and cost estimates, so it needs no signup or paid API keys. The full PostgreSQL and Redis gateway runs locally with Docker Compose.
-
-![Workspace showing a 429 and successful provider fallback](docs/screenshots/workspace.jpg)
-
-## What you can verify
-
-| Capability | Implementation | Evidence |
-| --- | --- | --- |
-| Automatic model selection | Local classifier by default; optional Jev with a confidence threshold and bounded deadline | [Classification tests](internal/classifier/jev_test.go) · [Routing tests](internal/router/automatic_test.go) |
-| Provider independence | One Go interface; OpenAI, Anthropic, Cohere, mock adapters | [Adapter fixture tests](internal/provider/http_test.go) |
-| Partial-failure handling | Per-attempt deadlines, cancellation, bounded ordered fallback | [Router tests](internal/router/router_test.go) |
-| Shared quotas | Atomic Redis Lua token bucket using server time | [Concurrent Redis tests](internal/ratelimit/bucket_test.go) |
-| Durable request history | Pending record before upstream work; transactional attempt finalization | [Ledger tests](internal/store/store_test.go) |
-| Access isolation | Hashed keys, revocation, history scoped to the authenticated key | [HTTP tests](internal/api/api_test.go) |
-| Cost accounting | Integer nano-USD arithmetic; simulated usage explicitly labeled | [Pricing tests](internal/pricing/pricing_test.go) |
+The screenshot shows three **real, read-only Codex CLI runs** launched through Relay on September 24, 2026: two direct CLI runs and one child invoked through the installed Codex plugin. The public site is product documentation; the run-history UI serves your own data locally at `127.0.0.1:8787`.
 
 ## Quick start
 
-Install Docker with Compose, then:
+Install [Go 1.26+](https://go.dev/doc/install) and the [Codex CLI](https://developers.openai.com/codex/cli). Sign in to Codex through its normal flow, then:
 
 ```sh
 git clone https://github.com/KennyMx/Relay.git
 cd Relay
-docker compose run --rm --build --no-deps --user "$(id -u):$(id -g)" -v "$PWD:/setup" gateway init /setup/.env
-docker compose up --build
+go install ./cmd/relay-agent
+export PATH="$(go env GOPATH)/bin:$PATH"
+
+printf 'Find the Go package that implements the Redis token bucket.' |
+  relay-agent run --host codex --mode cheap
+
+relay-agent runs
+relay-agent serve
 ```
 
-The website is available at [http://localhost:8080](http://localhost:8080); open the [operator console](http://localhost:8080/console) to manage the gateway. PostgreSQL and Redis stay on the internal Docker network. Migrations run automatically before the gateway starts. The one-time `init` command creates an ignored `.env` file with unique random admin/database credentials and owner-only permissions. It refuses to replace an existing file. On Windows, omit the `--user` option and mount the repository's absolute path at `/setup`.
+Open [http://127.0.0.1:8787](http://127.0.0.1:8787) to view your run history. Relay stores model, host, route, duration, status, and reported usage in an ignored `.relay/runs.jsonl` file. It does **not** store prompts or answers. The UI binds to loopback only. Use `--log PATH` on `run`, `runs`, and `serve` to keep the log elsewhere.
 
-Open your local `.env` privately, copy `RELAY_ADMIN_TOKEN`, and select **Create key** in the console. There is no shared admin password. The console reveals the raw Relay key once, then keeps it only in memory. Disconnecting or reloading requires reconnection with your saved key; it is not written to browser storage. Disconnect also clears prompts and request data from the page.
+By default the native Codex run is read-only. Add `--write` to use Codex's workspace-write mode with automatic approval review for actions that need it. Relay never bypasses those controls.
 
-Verify the running service with one command:
+## Model routing
+
+Relay chooses the model **before** a new Codex run starts. It cannot switch the model of an existing Codex conversation or intercept its internal model calls.
+
+| Mode | Selection |
+| --- | --- |
+| `--mode cheap` | Use the cheap model directly. |
+| `--mode strong` | Use the strong model directly. |
+| `--mode auto` | Use an offline complexity rule; complex tasks go to strong, other tasks to cheap. |
+
+The default Codex model names are `gpt-6-luna` and `gpt-6-sol`. They can be overridden with `--cheap-model` and `--strong-model` according to models available to your account:
 
 ```sh
-docker compose exec -T gateway relay-verify
+printf 'Review the concurrency behavior in this package.' |
+  relay-agent run --host codex --mode auto \
+    --cheap-model gpt-6-luna --strong-model gpt-6-sol
 ```
 
-This exercises successful requests, 429/500/timeout fallback, durable attempt records, per-key quotas, and revocation. The shipped `local` classifier and mock completion routes run without credentials or API charges. Jev is an explicit opt-in external service; see [setup and policy](docs/automatic-routing.md).
+The local rule is deliberately simple and costs no classification API call. It is not a quality guarantee. Relay retains an optional Jev classifier for its separate HTTP gateway, but Jev is **not** needed for native Codex routing: it would send task text to another service and add latency and possible cost. See [gateway routing](docs/automatic-routing.md) if you need that path.
 
-`docker compose down` stops services and retains data. Set `RELAY_PORT` in `.env` if port 8080 is occupied.
+## Measured Codex run
 
-## Use your own provider
+I ran the same read-only repository question through both modes from this checkout: “Find the Go package that implements Relay's Redis token bucket and state its path in one sentence.” Both answered `internal/ratelimit`. Relay parsed these values from Codex's `turn.completed` JSON events:
 
-The default setup is free and uses mock completions. For actual text-chat requests, edit your private `.env` and set `RELAY_MODE=real`. Choose one provider (`openai`, `anthropic`, or `cohere`), a model ID available to your account, and that model's current input/output prices in **USD per million tokens**:
+| Selected model | Input tokens | Cached input | Output tokens | Wall time |
+| --- | ---: | ---: | ---: | ---: |
+| `gpt-6-luna` | 31,282 | 26,112 | 124 | 8.3 s |
+| `gpt-6-sol` | 47,119 | 43,136 | 221 | 10.7 s |
 
-```dotenv
-RELAY_MODE=real
-RELAY_PRIMARY_PROVIDER=openai
-RELAY_PRIMARY_MODEL=<your-model-id>
-RELAY_PRIMARY_INPUT_USD_PER_M=<current-input-price>
-RELAY_PRIMARY_OUTPUT_USD_PER_M=<current-output-price>
-OPENAI_API_KEY=<your-private-key>
-```
+I also installed the plugin and invoked `route_codex_task` from a parent Codex task. It launched a read-only Luna child, which answered the same package question. The child reported **53,596 input tokens** (44,288 cached), **334 output tokens**, and **12.5 s** wall time. This verifies the plugin-to-Codex path, including the added context overhead of a nested agent.
 
-Optionally set `RELAY_FALLBACK_PROVIDER`, `RELAY_FALLBACK_MODEL`, `RELAY_FALLBACK_INPUT_USD_PER_M`, `RELAY_FALLBACK_OUTPUT_USD_PER_M`, and that second provider's API key. The providers must differ. Recreate with `docker compose up --build -d --wait`, then send the [same request](#use-the-api) using `model: "chat"` or omit `model`. The gateway tries the fallback once for retryable failures and records both attempts. Your own provider account may incur charges. Verify current model IDs and prices with [OpenAI](https://developers.openai.com/api/docs/pricing), [Anthropic](https://platform.claude.com/docs/en/about-claude/pricing), or [Cohere](https://docs.cohere.com/docs/how-does-cohere-pricing-work). Relay's estimates use the prices you enter; they are not provider invoices.
-
-This small setup gives you one stable API, per-key quotas, usage history, and fallback for real calls. The advanced [JSON configuration](config/real.example.json) still supports multiple routes and automatic complexity routing. The public workspace stays simulated and never receives your provider keys. See [operations](docs/operations.md#real-provider-configuration-optional) for details.
-
-## Use Relay from Codex or Claude Code
-
-The [Relay plugin](plugins/relay) provides an MCP `delegate_task` tool and an opt-in `cheap-task` skill. It sends a small, self-contained text task to your self-hosted gateway's `chat` route and returns the answer with a request ID, token counts, and estimated cost. Configure that route with a lower-cost model and keep expensive models out of its fallback order. The host agent handles edits, tool calls, and final checks.
-
-The `relay-agent` CLI and MCP server read the Relay key from `RELAY_KEY`, limit each task to 8 KiB and requested output to 512 tokens, and never call a provider during `check`. Install it with `go install ./cmd/relay-agent`, then follow the [plugin setup and usage guide](docs/agent-plugin.md). The default mock gateway lets you try the workflow for $0; real delegation uses your provider account and may incur charges. `relay-agent report` compares observed usage with a user-supplied reference price and labels mock data separately.
-
-## Request workspace and operator console
-
-`/workspace` is the public, credential-free request tool. It shows routing decisions, ordered attempts, latency, simulated usage and cost, and raw JSON. Its latest 20 requests stay only in browser memory; clearing the session also cancels in-flight work.
-
-`/console` operates your self-hosted gateway with a Relay API key. The console uses the actual gateway API and stored request data. Create a key, choose a route, send a completion, then inspect the ordered attempts and raw ledger JSON. History is paginated; summary cards describe the current page. Provider cost estimates and simulated costs are shown separately.
-
-## Jev routing, measured
-
-The 12-case smoke evaluation returned valid Jev classifications for **12/12 requests**, with **177 ms median** and **523 ms p95** wall time. Final routes matched the manually assigned reference tiers on **11/12 cases**; one low-confidence result selected the default route. This is a small synthetic sample, not a general accuracy or throughput claim.
-
-![Measured Jev classification latency by request](docs/benchmarks/latency.svg)
-
-![Illustrative model routing costs using mock token usage](docs/benchmarks/cost.svg)
-
-[Inputs](docs/benchmarks/cases.json) · [Live Jev results](docs/benchmarks/jev.json) · [Offline baseline](docs/benchmarks/local.json) · [Methodology and reproduction](docs/automatic-routing.md#reproduce-the-evaluation)
-
-To enable Jev, privately set `JEV_API_KEY` and `RELAY_CLASSIFIER=jev` in `.env`, then recreate the gateway. Jev receives the messages and can consume credits. Completion costs and classification costs are recorded separately. The default local setup remains free.
+The direct comparison is a **two-run integration check**, not a savings benchmark. Codex's context and cache state can differ between runs, and this CLI output does not provide a per-run subscription bill. Relay reports the observed token counts and the chosen model; it does not claim that all tasks use fewer tokens or cost less. Reproduce it with the quick-start command and inspect your own receipt and local UI.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Codex or Claude Code] --> T[Relay MCP tool]
-    T --> G[Go HTTP gateway]
-    C[API client] --> G
-    G --> K[Relay API key validation]
-    K <--> P[(PostgreSQL)]
-    K --> B[Redis token bucket]
-    B --> J[Jev or offline classification]
-    J --> R[Model router and bounded fallback]
-    R --> O[OpenAI]
-    R --> A[Anthropic]
-    R --> H[Cohere]
-    R --> M[Mock]
-    O & A & H & M --> L[Usage and cost ledger]
-    L --> P
-    L --> N[Normalized JSON response]
+    U[Developer task on stdin] --> R[Relay CLI]
+    R --> C[Local route selector]
+    C --> X[Native Codex CLI with selected model]
+    X --> J[Structured Codex result]
+    J --> L[Private local metadata log]
+    L --> W[Loopback run-history UI]
 ```
 
-The gateway validates access and claims one quota token before attempting upstream work. PostgreSQL and Redis are shared state; gateway instances do not keep a private quota counter. If either dependency is unavailable, Relay prevents upstream work. A separate finalization deadline lets the gateway record attempts even after a client disconnects.
+Relay passes the task to the native CLI, so Codex retains its own authentication, tool execution, and approval system. The launcher parses the final answer and reported usage, then appends one metadata record. Failed runs are recorded with status and any usage received. The local UI reads the log on refresh; it makes no provider calls.
 
-Read [the design decisions and failure boundaries](docs/design.md) for tradeoffs, including why retries cannot guarantee exactly-once provider billing.
+## Codex plugin
 
-## Use the API
+The [Codex plugin](plugins/relay) exposes `route_codex_task` so a running Codex task can send one bounded, read-only subtask to a selected Codex model and receive the native usage receipt. It uses the same local run log and requires no Relay key or provider API key. The [plugin guide](docs/agent-plugin.md) covers setup and the extra startup/context overhead of a nested agent. For a new task, the CLI launcher above is simpler.
 
-After creating a key, save it locally as `RELAY_KEY`:
+## Optional API gateway
 
-```sh
-curl -sS http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer $RELAY_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{"model":"auto","messages":[{"role":"user","content":"hello world"}],"max_tokens":64}'
-```
+The repository also contains Relay's earlier self-hosted Go API gateway. It provides a normalized `/v1/chat/completions` endpoint for OpenAI, Anthropic, and Cohere, with provider fallback, Redis per-key quotas, and a PostgreSQL usage ledger. It can be started with `docker compose up --build`; real provider calls require your own keys and may cost money. See [gateway operations](docs/operations.md), [configuration](config/real.example.json), and [security](SECURITY.md). A mock adapter remains available as a test fixture, but the public site no longer offers a simulated request playground.
 
-For a fallback example, change `model` to `fallback-rate-limit`: the configured primary returns 429, Relay tries the secondary, and the normalized completion contains `fallback_count: 1`. Inspect its request ID in the console or `GET /v1/requests/{id}` to see both attempts. Default mock routes also cover 500, timeout, and complete provider failure.
-
-[API contract (OpenAPI)](docs/openapi.json) · [API examples and operations](docs/operations.md) · [Routing configuration](config/relay.json) · [Real-provider template](config/real.example.json)
-
-Real completion providers are optional and require your own credentials and current model pricing. The Jev adapter has also been verified against the live official API with the recorded synthetic corpus. Completion adapters are tested against local HTTP fixtures; **no paid provider calls are required for development or testing**.
+The MCP server retains an advanced gateway-delegation tool, but the default Codex skill uses the native Codex route. An MCP tool cannot transparently change the parent Codex session's model. Experimental Claude Code command and result parsing exist in the CLI, but the **verified integration in this release is Codex**.
 
 ## Test
 
 ```sh
-# Real PostgreSQL + Redis; race detector and go vet
-docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
-
-# UI behavior and credential lifecycle (Node is test tooling only)
+go test ./...
+go vet ./...
 node --test internal/webui/*test.cjs
+docker compose -f docker-compose.yml -f docker-compose.test.yml run --rm test
 ```
 
-GitHub Actions runs these checks, live service verification, dependency/static security checks, and a full-history secret scan. With Go installed, `make test` runs unit tests; service tests explicitly skip unless integration mode is enabled.
-
-## Vercel deployment
-
-The public site runs a dedicated Go entrypoint, `cmd/server`, with no external provider credentials or database dependency. The full authenticated gateway remains self-hostable with Docker. See [deployment instructions and runtime boundaries](docs/deployment.md).
-
-## Scope
-
-Relay supports non-streaming text chat, not the complete provider API surface. It does not store prompts or completions, implement accounts or payments, or provide exactly-once upstream execution. Costs are estimates: timed-out providers may still bill work, and process crashes can leave pending ledger rows. Real-provider model names and prices must be configured by the operator.
-
-The default HTTP binding is loopback. For network exposure, configure allowed hosts and a TLS reverse proxy. See [security and credential rotation](SECURITY.md).
+The focused launcher tests cover model selection, structured result parsing, private run logging, and the local UI. The Docker target covers the separate PostgreSQL/Redis gateway. No paid completion API calls are needed to run tests. To verify live native routing, use your authenticated Codex CLI as shown above.
 
 Licensed under [MIT](LICENSE).

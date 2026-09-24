@@ -1,6 +1,6 @@
 # Security
 
-Relay's full gateway is self-hosted for a trusted operator and the people to whom that operator issues keys. The public site has a separate, stateless workspace with simulated completions; it has no provider credentials, PostgreSQL, or Redis access. No security review or scanner can guarantee the absence of vulnerabilities.
+Relay's native Codex launcher uses your local Codex login and stores only run metadata in an ignored local file. Its run-history page binds to loopback. The optional full API gateway is self-hosted for a trusted operator and the people to whom that operator issues keys. The public site serves product documentation only; it has no provider credentials, PostgreSQL, Redis, or access to local run history. No security review or scanner can guarantee the absence of vulnerabilities.
 
 ## Defaults and controls
 

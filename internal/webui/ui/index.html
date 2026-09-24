@@ -1,251 +1,29 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta
-      name="description"
-      content="Relay is an open-source Go gateway that routes LLM requests by complexity, recovers from provider failures, and records usage and cost."
-    />
-    <meta name="theme-color" content="#f7f7f4" />
-    <title>Relay — One API. The right route.</title>
-    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="/assets/site.css" />
-    <script src="/assets/site.js" defer></script>
-  </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <a class="wordmark" href="/" aria-label="Relay home"
-        ><img
-          src="/assets/favicon.svg"
-          alt=""
-          width="28"
-          height="28"
-        />relay<span class="wordmark-dot">.</span></a
-      >
-      <nav aria-label="Main navigation">
-        <a href="/#product">Product</a><a href="/architecture">How it works</a
-        ><a
-          href="https://github.com/KennyMx/Relay"
-          target="_blank"
-          rel="noreferrer"
-          >GitHub ↗</a
-        >
-      </nav>
-      <a class="button small dark" href="/workspace"
-        >Open workspace <span>↗</span></a
-      >
-    </header>
-    <main id="main">
-      <section class="hero wrap">
-        <div class="hero-copy">
-          <p class="eyebrow">
-            <span class="live-dot"></span> OPEN SOURCE / LLM INFRASTRUCTURE
-          </p>
-          <h1>One API.<br />Your models.<br /><span>The right route.</span></h1>
-          <p class="hero-description">
-            Put the right model behind every request. Relay routes by
-            complexity, handles provider failures, and gives you a clear record
-            of usage and cost.
-          </p>
-          <div class="hero-actions">
-            <a class="button dark" href="/workspace"
-              >Try a request <span>↗</span></a
-            ><a class="button ghost" href="/architecture"
-              >Explore the architecture <span>→</span></a
-            >
-          </div>
-          <p class="quiet small-copy">
-            Try real routing with simulated completions. Self-host the full gateway with Docker.
-          </p>
-        </div>
-        <div
-          class="hero-visual"
-          aria-label="Request routing architecture illustration"
-        >
-          <div class="visual-top">
-            <span class="mono">REQUEST LIFECYCLE</span
-            ><span class="outline-tag">One interface</span>
-          </div>
-          <div class="diagram-node input-node">
-            <span class="node-icon">↗</span>
-            <div>
-              <span class="node-overline">YOUR APPLICATION</span
-              ><strong>POST /v1/chat/completions</strong>
-            </div>
-            <span class="node-code">{ }</span>
-          </div>
-          <div class="connector"><span>model: “auto”</span></div>
-          <div class="router-node">
-            <div class="router-mark">
-              <img src="/assets/favicon.svg" width="30" height="30" alt="" />
-            </div>
-            <div>
-              <strong>Relay gateway</strong
-              ><span>Classify. Select. Recover.</span>
-            </div>
-            <span class="purple-tag">Go</span>
-          </div>
-          <div class="split-line" aria-hidden="true"></div>
-          <div class="tier-grid">
-            <div>
-              <span class="tier-dot green"></span><strong>Simple</strong
-              ><small>Fast route</small>
-            </div>
-            <div class="selected-tier">
-              <span class="tier-dot purple"></span><strong>Standard</strong
-              ><small>Balanced route</small>
-            </div>
-            <div>
-              <span class="tier-dot orange"></span><strong>Complex</strong
-              ><small>Reasoning route</small>
-            </div>
-          </div>
-          <div class="provider-row">
-            <span>OpenAI</span><span>Anthropic</span><span>Cohere</span
-            ><span>Mock</span>
-          </div>
-          <div class="visual-bottom">
-            <span class="mono">EVERY ATTEMPT, ACCOUNTED FOR</span
-            ><span class="database-chip">▤ PostgreSQL</span>
-          </div>
-        </div>
-      </section>
-      <section class="proof-strip wrap" aria-label="Project at a glance">
-        <div>
-          <strong>4</strong
-          ><span>Provider adapters.<br />One request format.</span>
-        </div>
-        <div>
-          <strong>177<span>ms</span></strong
-          ><span
-            >Median Jev classification.<br /><a
-              href="https://github.com/KennyMx/Relay/blob/main/docs/benchmarks/jev.json"
-              >12-case measured sample ↗</a
-            ></span
-          >
-        </div>
-        <div>
-          <strong>$0</strong
-          ><span>To run locally.<br />Offline mode included.</span>
-        </div>
-        <div class="stack-proof">
-          <span class="mono">A SMALL, PRACTICAL STACK</span>
-          <p>Go <i>/</i> PostgreSQL <i>/</i> Redis <i>/</i> Docker</p>
-        </div>
-      </section>
-      <section class="section wrap" id="product">
-        <div class="section-heading">
-          <p class="eyebrow">BUILT FOR THE REQUEST PATH</p>
-          <h2>Less provider plumbing.<br />More control.</h2>
-          <p>
-            A gateway you can run, inspect, and understand. From your first
-            request to the last provider attempt.
-          </p>
-        </div>
-        <div class="feature-grid">
-          <article class="feature-card">
-            <span class="feature-icon">⑂</span
-            ><span class="mono feature-number">01 / ROUTING</span>
-            <h3>Match the task to a model.</h3>
-            <p>
-              Classify request complexity locally or opt in to Jev. Your policy
-              maps each tier to a model route, with explicit selection available.
-            </p>
-            <div class="mini-code">
-              <span class="code-key">"model"</span>:
-              <span class="code-value">"auto"</span>
-            </div>
-            <a href="/architecture#routing">Understand routing →</a>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon">↪</span
-            ><span class="mono feature-number">02 / RESILIENCE</span>
-            <h3>A failed provider isn't the end.</h3>
-            <p>
-              Timeouts, rate limits, and selected server errors move to the next
-              configured target. Attempts and deadlines stay bounded.
-            </p>
-            <div class="fallback-line">
-              <span class="error-pill">429</span><span>→</span
-              ><span class="success-pill">200 OK</span>
-            </div>
-            <a href="/workspace?scenario=fallback">Try provider fallback →</a>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon">▤</span
-            ><span class="mono feature-number">03 / VISIBILITY</span>
-            <h3>Know where every request went.</h3>
-            <p>
-              Inspect the selected model, provider attempts, token usage,
-              latency, and estimated cost. No prompts stored in the ledger.
-            </p>
-            <div class="ledger-preview">
-              <span>request → attempts → usage</span><span>✓</span>
-            </div>
-            <a href="/architecture#ledger">See what gets recorded →</a>
-          </article>
-        </div>
-      </section>
-      <section class="integration-section">
-        <div class="wrap integration-grid">
-          <div>
-            <p class="eyebrow">ONE ENDPOINT. YOUR INFRASTRUCTURE.</p>
-            <h2>Change models.<br />Keep your application.</h2>
-            <p>
-              Relay translates your request into each provider's format and
-              returns a consistent response. Configure routes once; keep clients
-              simple.
-            </p>
-            <a class="text-link" href="/architecture#quickstart"
-              >Start with Docker Compose →</a
-            >
-          </div>
-          <div class="code-window">
-            <div class="code-top">
-              <span><i></i><i></i><i></i></span
-              ><span class="mono">request.sh</span
-              ><button data-copy="requestExample" aria-label="Copy API example">
-                Copy
-              </button>
-            </div>
-            <pre
-              id="requestExample"
-            ><code>curl http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer $RELAY_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "auto",
-    "messages": [{
-      "role": "user",
-      "content": "Explain a distributed rate limiter."
-    }]
-  }'</code></pre>
-            <div class="code-bottom">
-              <span class="live-dot"></span> Same contract across every provider
-            </div>
-          </div>
-        </div>
-      </section>
-      <section class="closing wrap">
-        <p class="eyebrow">FOLLOW A REQUEST FROM START TO FINISH</p>
-        <h2>See the routing.<br />Understand the decisions.</h2>
-        <p>Send a request, trigger a failure, and inspect the result.</p>
-        <a class="button dark" href="/workspace"
-          >Open the workspace <span>↗</span></a
-        >
-      </section>
-    </main>
-    <footer class="site-footer wrap">
-      <a class="wordmark" href="/">relay.</a
-      ><span>Open source. Self-hostable. Built in Go.</span>
-      <div>
-        <a href="/architecture">Architecture</a
-        ><a href="/console">Operator console</a
-        ><a href="https://github.com/KennyMx/Relay">Source ↗</a>
-      </div>
-    </footer>
-    <div class="site-toast" role="status" id="siteToast" hidden></div>
-  </body>
-</html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Relay routes real Codex CLI tasks to a chosen model and records native token usage in a local run history.">
+  <meta name="theme-color" content="#0a0e17"><title>Relay — Route coding work. See actual usage.</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/product.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="nav wrap"><a class="brand" href="/">relay<span>.</span></a><nav class="links" aria-label="Main navigation"><a href="/#how">How it works</a><a href="/architecture">Architecture</a><a href="https://github.com/KennyMx/Relay">GitHub ↗</a></nav></header>
+<main id="main">
+  <section class="hero wrap"><div><p class="eyebrow">Open-source Codex tool · Go</p><h1>Route coding work.<br><em>See actual usage.</em></h1><p class="lead">Relay launches Codex on the model you choose for a task. It captures the native CLI’s reported tokens and keeps a private, local history. No gateway account or provider API key is needed when you use your existing Codex login.</p><div class="actions"><a class="button" href="https://github.com/KennyMx/Relay#quick-start">Get started ↗</a><a class="button secondary" href="/architecture">How it works →</a></div><p class="fine">Model selection happens before a new CLI run. Relay does not intercept or switch an agent’s active session.</p></div><div class="terminal" aria-label="Relay native CLI example"><div class="terminal-bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>relay-agent · native run</span></div><pre><span class="prompt">$</span> printf 'Find the Redis token bucket.' | \
+    relay-agent run --host codex --mode cheap
+
+Relay’s Redis token bucket is in
+<span class="highlight">internal/ratelimit</span>.
+
+<span class="muted">[Relay run: host=codex,
+ selected=gpt-6-luna,
+ input=31282, cached=26112,
+ output=124, duration=8255ms]</span></pre></div></section>
+  <div class="strip"><div class="strip-inner wrap"><div><strong>Native Codex execution</strong><span>The Codex CLI does the work with your existing authentication and tools.</span></div><div><strong>Explicit model routing</strong><span>Choose cheap or strong yourself, or use a local complexity rule before launch.</span></div><div><strong>Measured run history</strong><span>Real Codex-reported tokens, model, duration, and status; no prompts stored.</span></div></div></div>
+  <section class="section wrap" id="how"><p class="eyebrow">The workflow</p><h2>A small layer around<br>Codex.</h2><p class="section-intro">Relay is a launcher and recorder, not a replacement agent. It keeps Codex’s native behavior while making the model choice and usage visible.</p><div class="grid"><article class="card"><span class="num">01 / ROUTE</span><h3>Pick a model for the task</h3><p><code>--mode auto</code> uses an offline heuristic. <code>--mode cheap</code> and <code>--mode strong</code> give you direct control. Override the model names for your account.</p></article><article class="card"><span class="num">02 / EXECUTE</span><h3>Run the native CLI</h3><p>Relay starts a fresh Codex run. Read-only is the default; <code>--write</code> enables Codex’s normal file-edit workflow and approvals.</p></article><article class="card"><span class="num">03 / INSPECT</span><h3>Keep the evidence</h3><p>Relay parses the native result and saves usage metadata in an ignored local log. Open the local runs page to inspect real sessions without saving prompts or answers.</p></article></div></section>
+  <section class="section wrap proof"><div><p class="eyebrow">Real Codex CLI runs</p><h2>The UI has a job now.</h2><p>It shows runs you actually launched: which model was selected, how long it took, and what token counts Codex reported. This screenshot contains two direct read-only runs and one child invoked through the installed Codex plugin. It is not a synthetic cost-savings benchmark.</p><a class="button secondary" href="https://github.com/KennyMx/Relay#measured-codex-run">See the measurement →</a></div><div><img src="/assets/native-runs.png" alt="Relay local run history showing three actual Codex CLI runs with model and token counts" width="1440" height="1100"><p class="caption">Captured from Relay’s loopback-only local UI, with actual Codex CLI usage.</p></div></section>
+  <section class="section wrap"><p class="eyebrow">Design boundary</p><h2>Useful claims. Honest limits.</h2><div class="flow"><div class="step"><b>Task text</b><span>Read from stdin; never stored in Relay’s run log.</span></div><div class="step"><b>Local selector</b><span>Cheap or strong model chosen before launch.</span></div><div class="step"><b>Codex CLI</b><span>Runs with your existing account.</span></div><div class="step"><b>Usage parser</b><span>Reads Codex-reported token and duration data.</span></div><div class="step"><b>Local history</b><span>Private metadata file and loopback UI.</span></div></div><p class="note">Relay can route work to a lower-cost model, but token counts alone do not establish monetary savings. Codex subscription billing is not reported per run.</p></section>
+  <section class="cta wrap"><h2>Run Codex.<br>Keep the receipt.</h2><p>Install the Go CLI, run a task through your existing Codex login, and inspect the result locally. The optional API gateway remains available for direct application requests.</p><a class="button" href="https://github.com/KennyMx/Relay#quick-start">Read the quick start ↗</a></section>
+</main><footer class="footer wrap"><span class="brand">relay<span>.</span></span><span>Open source · Go · Local-first</span><a class="textlink" href="https://github.com/KennyMx/Relay">Source on GitHub ↗</a></footer>
+</body></html>

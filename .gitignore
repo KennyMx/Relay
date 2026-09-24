@@ -20,3 +20,4 @@ secrets/
 /server
 node_modules/
 .vercel
+/.relay/
