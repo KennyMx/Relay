@@ -1,0 +1,311 @@
+{
+  "checked_at": "2026-09-24T23:22:29Z",
+  "prompt": "Read the repository and identify the Go package implementing Relay's Redis token bucket. Respond only with its repository-relative directory path.",
+  "catalog": [
+    {
+      "id": "gpt-6-astra",
+      "model": "gpt-6-astra",
+      "displayName": "GPT-6-Astra",
+      "defaultReasoningEffort": "low",
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low"
+        },
+        {
+          "reasoningEffort": "medium"
+        },
+        {
+          "reasoningEffort": "high"
+        },
+        {
+          "reasoningEffort": "xhigh"
+        },
+        {
+          "reasoningEffort": "max"
+        },
+        {
+          "reasoningEffort": "ultra"
+        }
+      ],
+      "isDefault": true
+    },
+    {
+      "id": "gpt-6-sol",
+      "model": "gpt-6-sol",
+      "displayName": "GPT-6-Sol",
+      "defaultReasoningEffort": "medium",
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low"
+        },
+        {
+          "reasoningEffort": "medium"
+        },
+        {
+          "reasoningEffort": "high"
+        },
+        {
+          "reasoningEffort": "xhigh"
+        },
+        {
+          "reasoningEffort": "max"
+        },
+        {
+          "reasoningEffort": "ultra"
+        }
+      ],
+      "isDefault": false
+    },
+    {
+      "id": "gpt-6-luna",
+      "model": "gpt-6-luna",
+      "displayName": "GPT-6-Luna",
+      "defaultReasoningEffort": "medium",
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low"
+        },
+        {
+          "reasoningEffort": "medium"
+        },
+        {
+          "reasoningEffort": "high"
+        },
+        {
+          "reasoningEffort": "xhigh"
+        },
+        {
+          "reasoningEffort": "max"
+        }
+      ],
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "model": "gpt-5.6-sol",
+      "displayName": "GPT-5.6-Sol",
+      "defaultReasoningEffort": "low",
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low"
+        },
+        {
+          "reasoningEffort": "medium"
+        },
+        {
+          "reasoningEffort": "high"
+        },
+        {
+          "reasoningEffort": "xhigh"
+        },
+        {
+          "reasoningEffort": "max"
+        },
+        {
+          "reasoningEffort": "ultra"
+        }
+      ],
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "model": "gpt-5.6-terra",
+      "displayName": "GPT-5.6-Terra",
+      "defaultReasoningEffort": "medium",
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low"
+        },
+        {
+          "reasoningEffort": "medium"
+        },
+        {
+          "reasoningEffort": "high"
+        },
+        {
+          "reasoningEffort": "xhigh"
+        },
+        {
+          "reasoningEffort": "max"
+        },
+        {
+          "reasoningEffort": "ultra"
+        }
+      ],
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "model": "gpt-5.6-luna",
+      "displayName": "GPT-5.6-Luna",
+      "defaultReasoningEffort": "medium",
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low"
+        },
+        {
+          "reasoningEffort": "medium"
+        },
+        {
+          "reasoningEffort": "high"
+        },
+        {
+          "reasoningEffort": "xhigh"
+        },
+        {
+          "reasoningEffort": "max"
+        }
+      ],
+      "isDefault": false
+    },
+    {
+      "id": "gpt-5.5",
+      "model": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "defaultReasoningEffort": "medium",
+      "supportedReasoningEfforts": [
+        {
+          "reasoningEffort": "low"
+        },
+        {
+          "reasoningEffort": "medium"
+        },
+        {
+          "reasoningEffort": "high"
+        },
+        {
+          "reasoningEffort": "xhigh"
+        }
+      ],
+      "isDefault": false
+    }
+  ],
+  "runs": [
+    {
+      "answer": "internal/ratelimit",
+      "expected_package_found": true,
+      "run": {
+        "id": "93712893d1dfe876",
+        "started_at": "2026-09-24T23:22:29Z",
+        "host": "codex",
+        "tier": "manual",
+        "routing_source": "explicit",
+        "reasoning_effort": "low",
+        "requested_model": "gpt-6-astra",
+        "input_tokens": 33239,
+        "cached_input_tokens": 28672,
+        "output_tokens": 47,
+        "duration_ms": 8392,
+        "success": true
+      }
+    },
+    {
+      "answer": "internal/ratelimit",
+      "expected_package_found": true,
+      "run": {
+        "id": "3fbed7a492f5a322",
+        "started_at": "2026-09-24T23:22:37Z",
+        "host": "codex",
+        "tier": "manual",
+        "routing_source": "explicit",
+        "reasoning_effort": "medium",
+        "requested_model": "gpt-6-sol",
+        "input_tokens": 46760,
+        "cached_input_tokens": 42880,
+        "output_tokens": 173,
+        "duration_ms": 10529,
+        "success": true
+      }
+    },
+    {
+      "answer": "internal/ratelimit",
+      "expected_package_found": true,
+      "run": {
+        "id": "995388db9d9097f7",
+        "started_at": "2026-09-24T23:22:48Z",
+        "host": "codex",
+        "tier": "manual",
+        "routing_source": "explicit",
+        "reasoning_effort": "high",
+        "requested_model": "gpt-6-luna",
+        "input_tokens": 34790,
+        "cached_input_tokens": 23040,
+        "output_tokens": 76,
+        "duration_ms": 8916,
+        "success": true
+      }
+    },
+    {
+      "answer": "internal/ratelimit",
+      "expected_package_found": true,
+      "run": {
+        "id": "5b571f9a495e1285",
+        "started_at": "2026-09-24T23:22:57Z",
+        "host": "codex",
+        "tier": "manual",
+        "routing_source": "explicit",
+        "reasoning_effort": "xhigh",
+        "requested_model": "gpt-5.6-sol",
+        "input_tokens": 30564,
+        "cached_input_tokens": 26752,
+        "output_tokens": 159,
+        "duration_ms": 8095,
+        "success": true
+      }
+    },
+    {
+      "answer": "internal/ratelimit",
+      "expected_package_found": true,
+      "run": {
+        "id": "6be3af9e978ebf47",
+        "started_at": "2026-09-24T23:23:05Z",
+        "host": "codex",
+        "tier": "manual",
+        "routing_source": "explicit",
+        "reasoning_effort": "low",
+        "requested_model": "gpt-5.6-terra",
+        "input_tokens": 29988,
+        "cached_input_tokens": 26112,
+        "output_tokens": 149,
+        "duration_ms": 8335,
+        "success": true
+      }
+    },
+    {
+      "answer": "internal/ratelimit",
+      "expected_package_found": true,
+      "run": {
+        "id": "6cd23063dfa1b2eb",
+        "started_at": "2026-09-24T23:23:13Z",
+        "host": "codex",
+        "tier": "manual",
+        "routing_source": "explicit",
+        "reasoning_effort": "medium",
+        "requested_model": "gpt-5.6-luna",
+        "input_tokens": 28957,
+        "cached_input_tokens": 22016,
+        "output_tokens": 167,
+        "duration_ms": 8205,
+        "success": true
+      }
+    },
+    {
+      "answer": "internal/ratelimit",
+      "expected_package_found": true,
+      "run": {
+        "id": "3fce4a5373323ddf",
+        "started_at": "2026-09-24T23:23:21Z",
+        "host": "codex",
+        "tier": "manual",
+        "routing_source": "explicit",
+        "reasoning_effort": "high",
+        "requested_model": "gpt-5.5",
+        "input_tokens": 30930,
+        "cached_input_tokens": 19200,
+        "output_tokens": 121,
+        "duration_ms": 8199,
+        "success": true
+      }
+    }
+  ]
+}

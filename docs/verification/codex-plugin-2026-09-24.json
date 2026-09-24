@@ -1,0 +1,26 @@
+{
+  "verification": "Installed Relay plugin invoked by a real Codex CLI host",
+  "tool": "route_codex_task",
+  "arguments": {
+    "model": "gpt-5.6-terra",
+    "effort": "xhigh",
+    "task": "Read the repository and identify the Go package implementing the Redis token bucket. Respond only with its repository-relative path. Do not edit files."
+  },
+  "result": {
+    "answer": "internal/ratelimit",
+    "run": {
+      "cached_input_tokens": 40192,
+      "duration_ms": 15230,
+      "host": "codex",
+      "id": "0cf12c4c36eefe60",
+      "input_tokens": 45913,
+      "output_tokens": 322,
+      "reasoning_effort": "xhigh",
+      "requested_model": "gpt-5.6-terra",
+      "routing_source": "explicit",
+      "started_at": "2026-09-24T23:28:15Z",
+      "success": true,
+      "tier": "manual"
+    }
+  }
+}
