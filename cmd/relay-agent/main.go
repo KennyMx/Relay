@@ -46,6 +46,13 @@ func main() {
 		Timeout:       40 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
+	if len(os.Args) == 2 && os.Args[1] == "mcp" {
+		if err := serveMCP(context.Background(), client); err != nil {
+			fmt.Fprintln(os.Stderr, "relay-agent:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	if err := run(os.Args[1:], os.Stdin, os.Stdout, client); err != nil {
 		fmt.Fprintln(os.Stderr, "relay-agent:", err)
 		os.Exit(1)
@@ -53,8 +60,8 @@ func main() {
 }
 
 func run(args []string, input io.Reader, output io.Writer, client httpDoer) error {
-	if len(args) == 0 || (args[0] != "ask" && args[0] != "check") {
-		return errors.New("usage: relay-agent ask [--route chat] [--max-tokens 256] [--json] < prompt.txt | relay-agent check")
+	if len(args) == 0 || (args[0] != "ask" && args[0] != "check" && args[0] != "report") {
+		return errors.New("usage: relay-agent ask [--route chat] [--max-tokens 256] [--json] < prompt.txt | relay-agent check | relay-agent report --reference-input USD_PER_M --reference-output USD_PER_M | relay-agent mcp")
 	}
 	base, err := gatewayURL(os.Getenv("RELAY_GATEWAY_URL"))
 	if err != nil {
@@ -70,6 +77,7 @@ func run(args []string, input io.Reader, output io.Writer, client httpDoer) erro
 		}
 		return check(base, key, output, client)
 	}
+	if args[0] == "report" { return report(args[1:], base, key, output, client) }
 	fs := flag.NewFlagSet("ask", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	route := fs.String("route", "chat", "configured Relay route")
@@ -78,40 +86,17 @@ func run(args []string, input io.Reader, output io.Writer, client httpDoer) erro
 	if err := fs.Parse(args[1:]); err != nil || len(fs.Args()) != 0 {
 		return errors.New("usage: relay-agent ask [--route chat] [--max-tokens 256] [--json] < prompt.txt")
 	}
-	if *maxTokens < 1 || *maxTokens > 512 || *route == "" || len(*route) > 64 || strings.ContainsAny(*route, " \t\r\n") {
-		return errors.New("route must be a short alias and max-tokens must be between 1 and 512")
-	}
 	data, err := io.ReadAll(io.LimitReader(input, maxPromptBytes+1))
 	if err != nil {
 		return fmt.Errorf("read task: %w", err)
 	}
 	prompt := strings.TrimSpace(string(data))
-	if prompt == "" || len(data) > maxPromptBytes {
+	if len(data) > maxPromptBytes {
 		return fmt.Errorf("task must be nonempty and at most %d bytes", maxPromptBytes)
 	}
-	requestBody, _ := json.Marshal(map[string]any{
-		"model": *route, "messages": []map[string]string{{"role": "user", "content": prompt}}, "max_tokens": *maxTokens,
-	})
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, base+"/v1/chat/completions", bytes.NewReader(requestBody))
+	result, err := delegate(context.Background(), base, key, *route, *maxTokens, prompt, client)
 	if err != nil {
 		return err
-	}
-	request.Header.Set("Authorization", "Bearer "+key)
-	request.Header.Set("Content-Type", "application/json")
-	response, err := client.Do(request)
-	if err != nil {
-		return fmt.Errorf("gateway unavailable: %w", err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return gatewayError(response)
-	}
-	var result completion
-	if err := json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&result); err != nil {
-		return fmt.Errorf("invalid gateway response: %w", err)
-	}
-	if len(result.Choices) != 1 || result.Choices[0].Message.Content == "" || result.ID == "" || result.Provider == "" {
-		return errors.New("invalid gateway completion")
 	}
 	if *jsonOutput {
 		return json.NewEncoder(output).Encode(result)
@@ -121,6 +106,40 @@ func run(args []string, input io.Reader, output io.Writer, client httpDoer) erro
 		result.Usage.Input, result.Usage.Output, float64(result.CostNanoUSD)/1e9,
 		result.Usage.Simulated, result.ID)
 	return err
+}
+
+func delegate(ctx context.Context, base, key, route string, maxTokens int, prompt string, client httpDoer) (completion, error) {
+	var result completion
+	if maxTokens < 1 || maxTokens > 512 || route == "" || len(route) > 64 || strings.ContainsAny(route, " \t\r\n") {
+		return result, errors.New("route must be a short alias and max-tokens must be between 1 and 512")
+	}
+	if strings.TrimSpace(prompt) == "" || len(prompt) > maxPromptBytes {
+		return result, fmt.Errorf("task must be nonempty and at most %d bytes", maxPromptBytes)
+	}
+	requestBody, _ := json.Marshal(map[string]any{
+		"model": route, "messages": []map[string]string{{"role": "user", "content": prompt}}, "max_tokens": maxTokens,
+	})
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/v1/chat/completions", bytes.NewReader(requestBody))
+	if err != nil {
+		return result, err
+	}
+	request.Header.Set("Authorization", "Bearer "+key)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return result, fmt.Errorf("gateway unavailable: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return result, gatewayError(response)
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&result); err != nil {
+		return result, fmt.Errorf("invalid gateway response: %w", err)
+	}
+	if len(result.Choices) != 1 || result.Choices[0].Message.Content == "" || result.ID == "" || result.Provider == "" {
+		return result, errors.New("invalid gateway completion")
+	}
+	return result, nil
 }
 
 func check(base, key string, output io.Writer, client httpDoer) error {

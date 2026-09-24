@@ -4,11 +4,33 @@
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8)](go.mod)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**A Go gateway for routing text-chat requests across OpenAI, Anthropic, Cohere, and a mock provider.** One `/v1/chat/completions` API selects a configured model route, retries provider failures, and records usage and estimated cost. The full self-hosted service adds Redis quotas, PostgreSQL request history, and hashed Relay API keys. An optional Codex / Claude Code plugin delegates small tasks to a configured lower-cost route.
+**Route bounded coding-agent tasks to a model you choose, then inspect the cost of each call.** Relay is an opt-in MCP plugin for Codex and Claude Code backed by a self-hosted Go gateway. The agent can delegate a small text task to a configured lower-cost route; Relay returns the answer, provider, token usage, estimated cost, and request ID. PostgreSQL records every attempt, Redis enforces per-key quotas, and the same gateway also serves a normalized `/v1/chat/completions` API for OpenAI, Anthropic, Cohere, and a free mock provider.
+
+Relay does **not** change Codex's or Claude Code's main model. Its value is selective delegation and transparent accounting. Routing to a cheaper model may lower spend on those calls, but it does not guarantee fewer tokens or lower total session cost.
 
 **[Live site](https://relay-three-iota.vercel.app) · [Try a request](https://relay-three-iota.vercel.app/workspace) · [Explore the architecture](https://relay-three-iota.vercel.app/architecture)**
 
-**[Coding-agent plugin setup](docs/agent-plugin.md)** · [Plugin source](plugins/relay) · [CLI tests](cmd/relay-agent/main_test.go)
+**[Install the coding-agent plugin](docs/agent-plugin.md)** · [MCP server and tests](cmd/relay-agent) · [Plugin source](plugins/relay)
+
+## Use it as a developer tool
+
+1. [Start the local stack](#quick-start) and create a Relay key in the operator console. The default `chat` route uses the mock provider, so setup and testing cost $0.
+2. `go install ./cmd/relay-agent`, export `RELAY_KEY` privately, and run `relay-agent check`. Load the [Codex or Claude Code plugin](docs/agent-plugin.md); it starts the `relay-agent mcp` server automatically.
+3. Ask the agent to use `relay:cheap-task` for a small standalone task. The `relay.delegate_task` MCP tool sends only that task through Relay and returns a per-call receipt. For real answers, [configure your own lower-cost model](#use-your-own-provider) on the route.
+4. Run `relay-agent report --reference-input 5 --reference-output 10` with **your chosen reference model's prices** to compare the same observed tokens at two prices. Real and simulated calls are reported separately.
+
+The mock-path receipt from a local end-to-end run:
+
+```text
+Relay: mock/mock-fast, route=fast, input=12, output=4,
+estimated=$0.00000200, simulated=true
+```
+
+The [reporting method and sample output](docs/agent-plugin.md#inspect-modeled-cost-difference) explain what that comparison can and cannot establish. The local mock result is a verification of accounting, not a claim of real savings. Jev classification is optional; a fixed cheap route is preferable for obvious small tasks because classification itself has cost and latency.
+
+![Rendered relay-agent report from a local mock request, with real and simulated totals separated](docs/screenshots/plugin-report.svg)
+
+The image renders actual CLI output from one local mock request. Its reference rates are illustrative operator inputs; no real-provider savings were measured.
 
 ![Relay homepage](docs/screenshots/home.jpg)
 
@@ -74,9 +96,9 @@ This small setup gives you one stable API, per-key quotas, usage history, and fa
 
 ## Use Relay from Codex or Claude Code
 
-The [Relay plugin](plugins/relay) offers an opt-in `cheap-task` skill. It sends a small, self-contained text task to your self-hosted gateway's `chat` route and returns the answer with a request ID, token counts, and estimated cost. Configure that route with a lower-cost model and keep expensive models out of its fallback order. The host agent handles edits, tool calls, and final checks. Relay does **not** silently switch Codex's or Claude Code's main model, and a cheaper model can still use the same or more tokens.
+The [Relay plugin](plugins/relay) provides an MCP `delegate_task` tool and an opt-in `cheap-task` skill. It sends a small, self-contained text task to your self-hosted gateway's `chat` route and returns the answer with a request ID, token counts, and estimated cost. Configure that route with a lower-cost model and keep expensive models out of its fallback order. The host agent handles edits, tool calls, and final checks.
 
-The companion `relay-agent` CLI reads the Relay key from `RELAY_KEY`, limits each task to 8 KiB and the output request to 512 tokens, and never calls a provider during `check`. Install it with `go install ./cmd/relay-agent`, then follow the [plugin setup and usage guide](docs/agent-plugin.md). The default mock gateway lets you try the complete workflow for $0; real delegation uses your provider account and may incur charges. Relay's ledger measures delegated calls, but no end-to-end cost-saving claim is made without comparing real sessions.
+The `relay-agent` CLI and MCP server read the Relay key from `RELAY_KEY`, limit each task to 8 KiB and requested output to 512 tokens, and never call a provider during `check`. Install it with `go install ./cmd/relay-agent`, then follow the [plugin setup and usage guide](docs/agent-plugin.md). The default mock gateway lets you try the workflow for $0; real delegation uses your provider account and may incur charges. `relay-agent report` compares observed usage with a user-supplied reference price and labels mock data separately.
 
 ## Request workspace and operator console
 
@@ -100,7 +122,9 @@ To enable Jev, privately set `JEV_API_KEY` and `RELAY_CLASSIFIER=jev` in `.env`,
 
 ```mermaid
 flowchart LR
-    C[Client] --> G[Go HTTP gateway]
+    A[Codex or Claude Code] --> T[Relay MCP tool]
+    T --> G[Go HTTP gateway]
+    C[API client] --> G
     G --> K[Relay API key validation]
     K <--> P[(PostgreSQL)]
     K --> B[Redis token bucket]

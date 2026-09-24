@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="500" viewBox="0 0 1440 500">
+<rect width="1440" height="500" fill="#0d1420"/>
+<rect x="36" y="36" width="1368" height="428" rx="14" fill="#111c2c" stroke="#31445d"/>
+<text x="65" y="82" fill="#79e0c6" font-size="22" font-family="Menlo, monospace" font-weight="bold">relay-agent report · local mock run</text>
+<text x="65" y="125" fill="#d9e7f4" font-size="16" font-family="Menlo, monospace">Relay cost comparison (1 recent key-scoped requests; successful only)</text>
+<text x="65" y="150" fill="#d9e7f4" font-size="16" font-family="Menlo, monospace">Reference: input $5/M, output $10/M; same observed tokens</text>
+<text x="65" y="175" fill="#9bc4da" font-size="16" font-family="Menlo, monospace">REAL: 0 requests, 0 input + 0 output tokens, Relay estimate $0.00000000, reference estimate $0.00000000, modeled di</text>
+<text x="65" y="200" fill="#d9e7f4" font-size="16" font-family="Menlo, monospace">fference $0.00000000</text>
+<text x="65" y="225" fill="#9bc4da" font-size="16" font-family="Menlo, monospace">SIMULATED: 1 requests, 12 input + 4 output tokens, Relay estimate $0.00000200, reference estimate $0.00010000, mode</text>
+<text x="65" y="250" fill="#d9e7f4" font-size="16" font-family="Menlo, monospace">led difference $0.00009800</text>
+<text x="65" y="275" fill="#d9e7f4" font-size="16" font-family="Menlo, monospace">Estimates include recorded classifier cost. This does not measure host-agent billing, total session cost, or answer</text>
+<text x="65" y="300" fill="#d9e7f4" font-size="16" font-family="Menlo, monospace"> quality. Simulated figures are not real savings.</text>
+<text x="65" y="436" fill="#91a8bf" font-size="14" font-family="system-ui">Actual CLI output, rendered for readability. Simulated data only; reference rates supplied by the operator.</text>
+</svg>

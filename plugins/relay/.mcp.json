@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "relay": {
+      "type": "stdio",
+      "command": "relay-agent",
+      "args": ["mcp"],
+      "env_vars": ["RELAY_KEY", "RELAY_GATEWAY_URL"]
+    }
+  }
+}
